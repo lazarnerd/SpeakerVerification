@@ -7,4 +7,4 @@ sudo chown -R vscode:vscode /home/vscode
 sudo apt update -y
 sudo apt upgrade -y
 
-pip install -r requirements.txt
+pip3 install -r requirements.txt

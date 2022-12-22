@@ -10,4 +10,4 @@ DATA_PATH=${ROOT_DIR}/data
 
 
 mkdir ${DATA_PATH}
-python ${ROOT_DIR}/dataprep.py --save_path ${DATA_PATH} --download --user ${USERNAME} --password ${PASSWORD} 
+python3 ${ROOT_DIR}/dataprep.py --save_path ${DATA_PATH} --download --user ${USERNAME} --password ${PASSWORD} 
