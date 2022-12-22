@@ -191,6 +191,16 @@ def split_musan(args):
         print(idx, file)
 
 
+def convert_to_stft(y):
+    self.torchfb = torchaudio.transforms.Spectrogram(
+        sample_rate=16000,
+        n_fft=512,
+        win_length=400,
+        hop_length=160,
+        window_fn=torch.hamming_window,
+    )
+
+
 ## ========== ===========
 ## Main script
 ## ========== ===========

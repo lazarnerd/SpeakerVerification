@@ -8,6 +8,7 @@
 		"ghcr.io/devcontainers/features/nvidia-cuda:1": {},
 		"ghcr.io/iterative/features/nvtop:1": {},
 		"ghcr.io/devcontainers-contrib/features/act-asdf:1": {},
+		"ghcr.io/devcontainers-contrib/features/poetry:1": {},
 		"ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
 			"packages": "ffmpeg,wget,ncdu"
 		},
