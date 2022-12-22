@@ -4,28 +4,79 @@
 	"name": "Python 3",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/python:0-3.10",
+
 	"features": {
 		"ghcr.io/devcontainers/features/nvidia-cuda:1": {},
 		"ghcr.io/iterative/features/nvtop:1": {},
 		"ghcr.io/devcontainers-contrib/features/act-asdf:1": {},
 		"ghcr.io/devcontainers-contrib/features/poetry:1": {},
-		"ghcr.io/devcontainers/features/git:1": {},
-		"ghcr.io/devcontainers/features/github-cli:1": {}
+		"ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {},
+		"ghcr.io/devcontainers/features/git:1": {
+			"version": "os-provided"
+		},
+		"ghcr.io/devcontainers/features/github-cli:1": {
+			"version": "latest"
+		}
 	},
+	
+	"mounts": [
+		// This is to forward user github cli configurations from the host to devcontainer
+		"source=${localEnv:HOME}/.config/gh,target=/home/vscode/.config/gh,type=bind",
+		"source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind"
+	],
+	
 	// This is to forward all the GPU's of the host OS tot the devcontainer,
 	// so that development will be easier. make sure to have nvidia-docker2 installed:
 	// https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
 	"runArgs": [
     	"--gpus", "all"
-	]
-	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
+	],
+
+	// VSCode Extensions to install
+	"extensions": [
+		// Python
+		"ms-python.python",
+		"ms-python.vscode-pylance",
+		"ms-python.black-formatter",
+		// Github
+		"github.vscode-pull-request-github",
+		"mhutchie.git-graph",
+		"donjayamanne.githistory",
+		"cschleiden.vscode-github-actions",
+		// Github Copilot
+		"github.copilot",
+		"github.copilot-labs",
+		// Docker
+		"ms-azuretools.vscode-docker",
+		// Syntax
+		"redhat.vscode-yaml",
+		"tamasfe.even-better-toml",
+		"IronGeek.vscode-env",
+		// Utilities / QoL
+		"jebbs.plantuml",
+		"shd101wyy.markdown-preview-enhanced",
+		"jock.svg",
+		"spmeesseman.vscode-taskexplorer",
+		"tomoyukim.vscode-mermaid-editor"
+	],
+
+	// Set *default* container specific settings.json values on container create.
+	"settings": {
+		"python.linting.enabled": true,
+		"python.linting.pylintEnabled": false,
+		"python.languageServer": "Pylance",
+        "[python]": {
+            "editor.defaultFormatter": "ms-python.black-formatter",
+            "editor.formatOnSave": true
+        },
+		"python.testing.pytestEnabled": true
+	},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 
-	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "pip3 install --user -r requirements.txt",
+	// Use 'updateContentCommand' to run commands after the container is updated.
+	"updateContentCommand": ".devcontainer/setup.sh"
 
 	// Configure tool-specific properties.
 	// "customizations": {},
