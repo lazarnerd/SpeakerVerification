@@ -4,13 +4,13 @@
 	"name": "Python 3",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/python:0-3.10",
-
 	"features": {
 		"ghcr.io/devcontainers/features/nvidia-cuda:1": {},
 		"ghcr.io/iterative/features/nvtop:1": {},
 		"ghcr.io/devcontainers-contrib/features/act-asdf:1": {},
-		"ghcr.io/devcontainers-contrib/features/poetry:1": {},
-		"ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {},
+		"ghcr.io/rocker-org/devcontainer-features/apt-packages:1": {
+			"packages": "ffmpeg,wget,ncdu"
+		},
 		"ghcr.io/devcontainers/features/git:1": {
 			"version": "os-provided"
 		},
@@ -18,20 +18,18 @@
 			"version": "latest"
 		}
 	},
-	
 	"mounts": [
 		// This is to forward user github cli configurations from the host to devcontainer
 		"source=${localEnv:HOME}/.config/gh,target=/home/vscode/.config/gh,type=bind",
 		"source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind"
 	],
-	
 	// This is to forward all the GPU's of the host OS tot the devcontainer,
 	// so that development will be easier. make sure to have nvidia-docker2 installed:
 	// https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
 	"runArgs": [
-    	"--gpus", "all"
+		"--gpus",
+		"all"
 	],
-
 	// VSCode Extensions to install
 	"extensions": [
 		// Python
@@ -59,28 +57,23 @@
 		"spmeesseman.vscode-taskexplorer",
 		"tomoyukim.vscode-mermaid-editor"
 	],
-
 	// Set *default* container specific settings.json values on container create.
 	"settings": {
 		"python.linting.enabled": true,
 		"python.linting.pylintEnabled": false,
 		"python.languageServer": "Pylance",
-        "[python]": {
-            "editor.defaultFormatter": "ms-python.black-formatter",
-            "editor.formatOnSave": true
-        },
+		"[python]": {
+			"editor.defaultFormatter": "ms-python.black-formatter",
+			"editor.formatOnSave": true
+		},
 		"python.testing.pytestEnabled": true
 	},
-
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
-
 	// Use 'updateContentCommand' to run commands after the container is updated.
 	"updateContentCommand": ".devcontainer/setup.sh"
-
 	// Configure tool-specific properties.
 	// "customizations": {},
-
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	// "remoteUser": "root"
 }
