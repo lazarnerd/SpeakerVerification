@@ -15,6 +15,8 @@ from scipy import signal
 from scipy.io import wavfile
 from torch.utils.data import Dataset, DataLoader
 import torch.distributed as dist
+import h5py
+
 
 def round_down(num, divisor):
     return num - (num%divisor)
@@ -53,7 +55,8 @@ def loadWAV(filename, max_frames, evalmode=True, num_eval=10):
     feat = numpy.stack(feats,axis=0).astype(numpy.float)
 
     return feat;
-    
+
+
 class AugmentWAV(object):
 
     def __init__(self, musan_path, rir_path, max_frames):
@@ -106,6 +109,7 @@ class AugmentWAV(object):
 
 
 class train_dataset_loader(Dataset):
+
     def __init__(self, train_list, augment, musan_path, rir_path, max_frames, train_path, **kwargs):
 
         self.augment_wav = AugmentWAV(musan_path=musan_path, rir_path=rir_path, max_frames = max_frames)
@@ -115,6 +119,7 @@ class train_dataset_loader(Dataset):
         self.musan_path = musan_path
         self.rir_path   = rir_path
         self.augment    = augment
+        self.train_path = train_path
         
         # Read training files
         with open(train_list) as dataset_file:
@@ -138,11 +143,20 @@ class train_dataset_loader(Dataset):
             self.data_label.append(speaker_label)
             self.data_list.append(filename)
 
+    # sample generator to load the raw audio samples one by one
+    # important that this is a generator of some sort, so that you don't load
+    # all the samples into memory at once
+    def sample_generator():
+        for i, data in enumerate(self.data_list):
+            waveform, sample_rate = torchaudio.load(data, normalize=True)
+            speaker_id = self.speaker_label[i]
+            yield i, waveform, speaker_id
+
     def __getitem__(self, indices):
 
         feat = []
 
-        for index in indices:
+        """ for index in indices:
             
             audio = loadWAV(self.data_list[index], self.max_frames, evalmode=False)
             
@@ -159,10 +173,70 @@ class train_dataset_loader(Dataset):
                     
             feat.append(audio);
 
-        feat = numpy.concatenate(feat, axis=0)
+        feat = numpy.concatenate(feat, axis=0) 
+        
+        return torch.FloatTensor(feat), self.data_label[index] """
 
-        return torch.FloatTensor(feat), self.data_label[index]
+        # Might also make sense to have meta datasets containing details about the speakers and the audio samples
+        # don't know what makes sense here to add, but it is useful to have this information in the dataset
+        # meta_speakers = h5_file['meta_speakers']
+        # meta_samples  = h5_file['meta_samples']
 
+        torchfb =  torchaudio.transforms.Spectrogram(
+                #sample_rate=16000,
+                n_fft=512,
+                win_length=400,
+                hop_length=160,
+                window_fn=torch.hamming_window,
+        )
+
+        # x: Sample Dataset containing the spectrograms
+        # shape:  [T, n_freq] [1,n_freq,T]
+        # T:      The sum of lengths from the time axes of all the spectrograms
+        # n_freq: The number of frequency bins in the spectrograms 
+        T = 0
+        n_freq = 257
+        x_dataset_shape = (T,n_freq) # The current shape of the spectrogram dataset (x), will be resized for each sample
+        x = np.zeros(x_dataset_shape)
+
+        # y: Label Dataset containing the speaker IDs, and indices of the samples
+        # shape:  [n_samples, 3]
+        # The first column is the speaker ID
+        # The second column is the START index of the sample in the spectrogram (x) dataset
+        # The third column is the END index of the sample in the spectrogram (x) dataset
+        n_samples = len(self.data_list) # The number of samples in the dataset
+        y = np.zeros((n_samples, 3))
+        
+        torchfb = torchaudio.transforms.Spectrogram(
+            #sample_rate=16000,
+            n_fft=512,
+            win_length=400,
+            hop_length=160,
+            window_fn=torch.hamming_window,
+        )
+
+        samples = sample_generator()
+        for i, waveform, speaker_id in samples:
+            spectrogram = torchfb(waveform)[0].T # spectrogram shape: [T, n_freq] where T is the length of the sample in time, and n_freq is the number of frequency bins
+
+            start_index = x_dataset_shape[0]
+            end_index   = start_index + spectrogram.size()[0]
+            x_dataset_shape = (end_index, n_freq)
+
+            x.resize(x_dataset_shape)
+
+            x[start_index:end_index,:] = spectrogram
+
+            y[i,:] = (speaker_id, start_index, end_index)
+
+        # save x and y to h5_file 
+        with h5py.File(self.save_path+"/h5_file.hdf5", "w") as h5_file: # TODO: check if save_path works
+            h5_file.create_dataset("x", data=x)
+            h5_file.create_dataset("y", data=y)
+    
+        return h5_file
+        
+        
     def __len__(self):
         return len(self.data_list)
 

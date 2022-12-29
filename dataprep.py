@@ -11,11 +11,12 @@ import hashlib
 import time
 import glob
 import tarfile
-import time
+import torch
 from zipfile import ZipFile
 from tqdm import tqdm
 from scipy.io import wavfile
 from threading import Thread
+
 
 ## ========== ===========
 ## Parse input arguments
@@ -170,6 +171,46 @@ def convert(args):
         if out != 0:
             raise ValueError("Conversion failed %s." % fname)
 
+def convert_to_h5(args):    
+    # iterate over all files (wav)
+    files = glob.glob("%s/%s/*/*/*.wav" % args.save_path, args.dataset)
+    out_file = "%s/spectrograms/%s" % args.save_path, args.dataset
+    for file in files:
+        # convert to spectrogram
+        waveform, sample_rate = torchaudio.load(file, normalize=True)
+        spectrogram = convert_to_stft(waveform)
+        
+
+
+    # convert to h5
+
+    """ print(f"Start converting: {dataset_name}.")
+    file = open(f"./voxceleb_trainer/data/{mode}_list.txt", "r")
+    for line in file:
+        name, path = line.split()
+        if folder=="": folder = dataset_name
+        input = f"./data/{folder}/"+path
+
+        fs, data = wavfile.read(input)
+        output = f"./data/h5/{dataset_name}/"+path.replace("/","+").replace(".wav",".h5")
+        #save_to acoular h5 format
+        acoularh5 = tables.open_file(output, mode = "w", title = output)
+        acoularh5.create_earray('/','time_data', atom=None, title='', filters=None, \
+                                expectedrows=100000, \
+                                byteorder=None, createparents=False, obj=data)
+        acoularh5.set_node_attr('/time_data','sample_freq', fs)
+        acoularh5.close()
+
+        """ # remove old wav files
+        try:
+            os.remove(input)
+        except FileNotFoundError:
+            print("")
+        """
+
+    print(f"End converting: {dataset_name}.") """
+
+
 
 ## ========== ===========
 ## Split MUSAN for faster random access
@@ -192,13 +233,14 @@ def split_musan(args):
 
 
 def convert_to_stft(y):
-    self.torchfb = torchaudio.transforms.Spectrogram(
-        sample_rate=16000,
+    transform =  torchaudio.transforms.Spectrogram(
+        #sample_rate=16000,
         n_fft=512,
         win_length=400,
         hop_length=160,
         window_fn=torch.hamming_window,
     )
+    return transform(y)
 
 
 ## ========== ===========
@@ -209,19 +251,11 @@ if __name__ == "__main__":
     if not os.path.exists(args.save_path):
         raise ValueError("Target directory does not exist.")
 
-    f = open("lists/fileparts.txt", "r")
-    fileparts = f.readlines()
-    f.close()
-
-    f = open("lists/files.txt", "r")
-    files = f.readlines()
-    f.close()
-
-    f = open("lists/augment.txt", "r")
-    augfiles = f.readlines()
-    f.close()
-
     if args.augment:
+        f = open("lists/augment.txt", "r")
+        augfiles = f.readlines()
+        f.close()
+
         download(args, augfiles)
         print("part-extract for simulated rir is running ...")
         part_extract(
@@ -239,9 +273,17 @@ if __name__ == "__main__":
         print("Done.")
 
     if args.download:
+        f = open("lists/fileparts.txt", "r")
+        fileparts = f.readlines()
+        f.close()
+        
         download(args, fileparts)
 
     if args.extract:
+        f = open("lists/files.txt", "r")
+        files = f.readlines()
+        f.close()
+
         concatenate(args, files)
         for file in files:
             full_extract(args, os.path.join(args.save_path, file.split()[1]))
@@ -259,3 +301,6 @@ if __name__ == "__main__":
 
     if args.convert:
         convert(args)
+
+    if args.h5:
+        convert_to_h5(args)

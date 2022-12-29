@@ -274,11 +274,11 @@ def main_worker(gpu, ngpus_per_node, args):
         scorefile = open(args.result_save_path + "/scores.txt", "a+")
 
     ## Initialise trainer and data loader
-    train_dataset = train_dataset_loader(**vars(args))
+    train_dataset = train_dataset_loader(**vars(args)) # returns h5_file
 
-    train_sampler = train_dataset_sampler(train_dataset, **vars(args))
+    train_sampler = train_dataset_sampler(train_dataset, **vars(args)) # TODO
 
-    train_loader = torch.utils.data.DataLoader(
+    train_loader = torch.utils.data.DataLoader( # TODO
         train_dataset,
         batch_size=args.batch_size,
         num_workers=args.nDataLoaderThread,
