@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 import torch
+import torchaudio
 import numpy
 import random
 import pdb
@@ -25,13 +26,22 @@ def worker_init_fn(worker_id):
     numpy.random.seed(numpy.random.get_state()[1][0] + worker_id)
 
 
-def loadWAV(filename, max_frames, evalmode=True, num_eval=10):
+def loadWAV(index, max_frames, evalmode=True, num_eval=10):
 
     # Maximum audio length
     max_audio = max_frames * 160 + 240
 
     # Read wav file and convert to torch tensor
-    audio, sample_rate = soundfile.read(filename)
+    h5_file = h5py.File('~/Documents/vt1code/voxceleb_trainer/data/h5_file_audio_train.hdf5','r')
+
+    #sample_size = 30000
+    (speaker_id, start, end) = h5_file["y"][int(index), :]
+    duration = end - start
+    """ if duration < sample_size:
+        sample_size = duration
+    start = random.randint(0,duration-sample_size) + start
+    audio = h5_file["x"][int(start):int(start+sample_size)] """
+    audio = h5_file["x"][int(start):int(end)] 
 
     audiosize = audio.shape[0]
 
@@ -54,7 +64,7 @@ def loadWAV(filename, max_frames, evalmode=True, num_eval=10):
 
     feat = numpy.stack(feats,axis=0).astype(numpy.float)
 
-    return feat;
+    return feat
 
 
 class AugmentWAV(object):
@@ -115,7 +125,7 @@ class train_dataset_loader(Dataset):
         self.augment_wav = AugmentWAV(musan_path=musan_path, rir_path=rir_path, max_frames = max_frames)
 
         self.train_list = train_list
-        self.max_frames = max_frames;
+        self.max_frames = max_frames
         self.musan_path = musan_path
         self.rir_path   = rir_path
         self.augment    = augment
@@ -123,7 +133,7 @@ class train_dataset_loader(Dataset):
         
         # Read training files
         with open(train_list) as dataset_file:
-            lines = dataset_file.readlines();
+            lines = dataset_file.readlines()
 
         # Make a dictionary of ID names and ID indices
         dictkeys = list(set([x.split()[0] for x in lines]))
@@ -134,33 +144,20 @@ class train_dataset_loader(Dataset):
         self.data_list  = []
         self.data_label = []
         
-        for lidx, line in enumerate(lines):
-            data = line.strip().split();
+        for line in open(train_list):
+            speaker_label, filename = line.strip().split()
+            self.data_label.append(int(speaker_label.replace("id","")))
+            self.data_list.append(os.path.join(train_path,filename))
 
-            speaker_label = dictkeys[data[0]];
-            filename = os.path.join(train_path,data[1]);
-            
-            self.data_label.append(speaker_label)
-            self.data_list.append(filename)
-
-    # sample generator to load the raw audio samples one by one
-    # important that this is a generator of some sort, so that you don't load
-    # all the samples into memory at once
-    def sample_generator():
-        for i, data in enumerate(self.data_list):
-            waveform, sample_rate = torchaudio.load(data, normalize=True)
-            speaker_id = self.speaker_label[i]
-            yield i, waveform, speaker_id
 
     def __getitem__(self, indices):
 
         feat = []
-
-        """ for index in indices:
+        #indices = random.sample(self.batch_size, len(self.data_list))
+        for index in range(len(data_label)):
             
-            audio = loadWAV(self.data_list[index], self.max_frames, evalmode=False)
-            
-            if self.augment:
+            audio = loadWAV(index, self.max_frames, evalmode=False) #replace this with audio
+            """ if self.augment:
                 augtype = random.randint(0,4)
                 if augtype == 1:
                     audio   = self.augment_wav.reverberate(audio)
@@ -169,85 +166,28 @@ class train_dataset_loader(Dataset):
                 elif augtype == 3:
                     audio   = self.augment_wav.additive_noise('speech',audio)
                 elif augtype == 4:
-                    audio   = self.augment_wav.additive_noise('noise',audio)
+                    audio   = self.augment_wav.additive_noise('noise',audio) """
                     
-            feat.append(audio);
-
-        feat = numpy.concatenate(feat, axis=0) 
+            feat.append(audio)
         
-        return torch.FloatTensor(feat), self.data_label[index] """
-
-        # Might also make sense to have meta datasets containing details about the speakers and the audio samples
-        # don't know what makes sense here to add, but it is useful to have this information in the dataset
-        # meta_speakers = h5_file['meta_speakers']
-        # meta_samples  = h5_file['meta_samples']
-
-        torchfb =  torchaudio.transforms.Spectrogram(
-                #sample_rate=16000,
-                n_fft=512,
-                win_length=400,
-                hop_length=160,
-                window_fn=torch.hamming_window,
-        )
-
-        # x: Sample Dataset containing the spectrograms
-        # shape:  [T, n_freq] [1,n_freq,T]
-        # T:      The sum of lengths from the time axes of all the spectrograms
-        # n_freq: The number of frequency bins in the spectrograms 
-        T = 0
-        n_freq = 257
-        x_dataset_shape = (T,n_freq) # The current shape of the spectrogram dataset (x), will be resized for each sample
-        x = np.zeros(x_dataset_shape)
-
-        # y: Label Dataset containing the speaker IDs, and indices of the samples
-        # shape:  [n_samples, 3]
-        # The first column is the speaker ID
-        # The second column is the START index of the sample in the spectrogram (x) dataset
-        # The third column is the END index of the sample in the spectrogram (x) dataset
-        n_samples = len(self.data_list) # The number of samples in the dataset
-        y = np.zeros((n_samples, 3))
-        
-        torchfb = torchaudio.transforms.Spectrogram(
-            #sample_rate=16000,
-            n_fft=512,
-            win_length=400,
-            hop_length=160,
-            window_fn=torch.hamming_window,
-        )
-
-        samples = sample_generator()
-        for i, waveform, speaker_id in samples:
-            spectrogram = torchfb(waveform)[0].T # spectrogram shape: [T, n_freq] where T is the length of the sample in time, and n_freq is the number of frequency bins
-
-            start_index = x_dataset_shape[0]
-            end_index   = start_index + spectrogram.size()[0]
-            x_dataset_shape = (end_index, n_freq)
-
-            x.resize(x_dataset_shape)
-
-            x[start_index:end_index,:] = spectrogram
-
-            y[i,:] = (speaker_id, start_index, end_index)
-
-        # save x and y to h5_file 
-        with h5py.File(self.save_path+"/h5_file.hdf5", "w") as h5_file: # TODO: check if save_path works
-            h5_file.create_dataset("x", data=x)
-            h5_file.create_dataset("y", data=y)
-    
-        return h5_file
-        
+        return torch.FloatTensor(numpy.array(feat)), self.data_label[index]      
         
     def __len__(self):
         return len(self.data_list)
 
 
-
 class test_dataset_loader(Dataset):
     def __init__(self, test_list, test_path, eval_frames, num_eval, **kwargs):
-        self.max_frames = eval_frames;
+        self.max_frames = eval_frames
         self.num_eval   = num_eval
         self.test_path  = test_path
         self.test_list  = test_list
+
+    def sample_generator():
+        for i, data in enumerate(self.data_list):
+            waveform, sample_rate = torchaudio.load(data, normalize=True)
+            speaker_id = self.data_label[i]
+            yield i, waveform, speaker_id
 
     def __getitem__(self, index):
         audio = loadWAV(os.path.join(self.test_path,self.test_list[index]), self.max_frames, evalmode=True, num_eval=self.num_eval)
@@ -260,13 +200,13 @@ class test_dataset_loader(Dataset):
 class train_dataset_sampler(torch.utils.data.Sampler):
     def __init__(self, data_source, nPerSpeaker, max_seg_per_spk, batch_size, distributed, seed, **kwargs):
 
-        self.data_label         = data_source.data_label;
-        self.nPerSpeaker        = nPerSpeaker;
-        self.max_seg_per_spk    = max_seg_per_spk;
-        self.batch_size         = batch_size;
-        self.epoch              = 0;
-        self.seed               = seed;
-        self.distributed        = distributed;
+        self.data_label         = data_source.data_label
+        self.nPerSpeaker        = nPerSpeaker
+        self.max_seg_per_spk    = max_seg_per_spk
+        self.batch_size         = batch_size
+        self.epoch              = 0
+        self.seed               = seed
+        self.distributed        = distributed
         
     def __iter__(self):
 
@@ -280,12 +220,12 @@ class train_dataset_sampler(torch.utils.data.Sampler):
         for index in indices:
             speaker_label = self.data_label[index]
             if not (speaker_label in data_dict):
-                data_dict[speaker_label] = [];
-            data_dict[speaker_label].append(index);
+                data_dict[speaker_label] = []
+            data_dict[speaker_label].append(index)
 
 
         ## Group file indices for each class
-        dictkeys = list(data_dict.keys());
+        dictkeys = list(data_dict.keys())
         dictkeys.sort()
 
         lol = lambda lst, sz: [lst[i:i+sz] for i in range(0, len(lst), sz)]

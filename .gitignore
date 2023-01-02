@@ -4,6 +4,7 @@
 *.mp4
 *.pcm
 *.yaml
+*.hdf5
 data
 data/
 exps/

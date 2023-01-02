@@ -4,14 +4,17 @@
 # Requirement: ffmpeg and wget running on a Linux system.
 
 import argparse
-import os
-import subprocess
-import pdb
-import hashlib
-import time
 import glob
+import h5py
+import hashlib
+import os
+import pdb
+import soundfile
+import subprocess
 import tarfile
+import time
 import torch
+import torchaudio
 from zipfile import ZipFile
 from tqdm import tqdm
 from scipy.io import wavfile
@@ -41,6 +44,9 @@ parser.add_argument(
     dest="augment",
     action="store_true",
     help="Download and extract augmentation files",
+)
+parser.add_argument(
+    "--convert_to_h5", dest="convert_to_h5", action="store_true", help="Enable convert"
 )
 
 args = parser.parse_args()
@@ -171,45 +177,117 @@ def convert(args):
         if out != 0:
             raise ValueError("Conversion failed %s." % fname)
 
-def convert_to_h5(args):    
-    # iterate over all files (wav)
-    files = glob.glob("%s/%s/*/*/*.wav" % args.save_path, args.dataset)
-    out_file = "%s/spectrograms/%s" % args.save_path, args.dataset
-    for file in files:
-        # convert to spectrogram
-        waveform, sample_rate = torchaudio.load(file, normalize=True)
-        spectrogram = convert_to_stft(waveform)
+def convert_to_stft(y):
+    transform = torchaudio.transforms.Spectrogram(
+        #sample_rate=16000,
+        n_fft=512,
+        win_length=400,
+        hop_length=160,
+        window_fn=torch.hamming_window,
+    )
+    return transform(y)
+
+def get_data_and_labels(args):
+    train_list = "./lists/voxceleb2.txt"
+    train_path = os.path.join(args.save_path,"voxceleb2")
+    data_list = []
+    data_label = []
+
+    for line in open(train_list):
+        speaker_label, filename = line.strip().split()
+        data_label.append(int(speaker_label.replace("id","")))
+        data_list.append(os.path.join(train_path,filename))
+
+    return data_list, data_label
+
+def get_meta_data():
+    meta_list = "./lists/meta_voxceleb2.txt"
+    meta_data = {}
+    feature_indexing = {"gender": {"m": 0, "f": 1}, "dataset": {"dev": 0, "test": 1}}
+    for line in open(meta_list):
+        speaker_label, _, gender, dataset = line.replace(",","").strip().split()
+        speaker_label = int(speaker_label.replace("id",""))
+        meta_data[speaker_label] = [feature_indexing["gender"][gender], feature_indexing["dataset"][dataset]]
+
+    return meta_data
+
+def convert_to_h5(args):  
+    data_list, data_label = get_data_and_labels(args)
+    meta_data = get_meta_data()
+
+    # Generates Samples
+    def sample_generator():
+        for i, data in enumerate(data_list):
+            waveform, _ = torchaudio.load(data)
+            audio, _ = soundfile.read(data) # raw audio in h5 ebenfalls speichern
+            speaker_id = data_label[i]
+            yield i, waveform, audio, speaker_id
+
+    n_samples = len(data_list)
+    T = 0
+    n_freq = 257
+
+    # x: Sample Dataset containing the spectrograms
+    # shape:  [T, n_freq]
+    # T:      The sum of lengths from the time axes of all the spectrograms
+    # n_freq: The number of frequency bins in the spectrograms 
+    x = h5py.File(args.save_path+'x.hdf5', 'w').create_dataset("x", (T,n_freq), maxshape=(None, n_freq)) 
+    # y: Label Dataset containing the speaker IDs, and indices of the samples
+    # shape:  [n_samples, 3]
+    # The first column is the speaker ID
+    # The second column is the START index of the sample in the spectrogram (x) dataset
+    # The third column is the END index of the sample in the spectrogram (x) dataset
+    y = h5py.File(args.save_path+'/y.hdf5', 'w').create_dataset("y", (n_samples, 3))
+    
+    # Same for raw audio with exception that x_audio contains audio
+    x_audio = h5py.File(args.save_path+'/x_audio.hdf5', 'w').create_dataset("x_audio", (0,), maxshape=(None,))
+    y_audio = h5py.File(args.save_path+'/y_audio.hdf5', 'w').create_dataset("y", (n_samples, 3))
+    
+    meta = h5py.File(args.save_path+'/meta.hdf5', 'w').create_dataset("meta", (n_samples, 3))
+
+    x_shape = (T,n_freq)
+    x_audio_shape = (0,)
+
+    samples = sample_generator()
+    for i, waveform, audio, speaker_id in samples:
+        spectrogram = convert_to_stft(waveform)[0].T # spectrogram shape: [T, n_freq]
+
+        # Store spectrogram
+        start_index = x_shape[0]
+        end_index   = start_index + spectrogram.size()[0]
+        x_shape = (end_index, n_freq)
+        x.resize(x_shape)
+        x[start_index:end_index,:] = spectrogram
+        x_shape = (end_index+1, n_freq)
+        y[i,:] = (speaker_id, start_index, end_index)
         
+        # Store raw audio
+        start_index = x_audio_shape[0]
+        end_index = start_index + audio.shape[0]
+        x_audio_shape = (end_index,)
+        x_audio.resize(x_audio_shape)
+        x_audio[start_index:end_index,] = audio
+        x_audio_shape = (end_index+1,)
+        y_audio[i,:] = (speaker_id, start_index, end_index)
 
+        # Store meta
+        speaker_id = int(y[i,0])
+        meta[i,:] = (speaker_id, meta_data[speaker_id][0], meta_data[speaker_id][1])
+        
+        if i%500==0:
+            print(f"Iteration {i}/{n_samples}")   
 
-    # convert to h5
-
-    """ print(f"Start converting: {dataset_name}.")
-    file = open(f"./voxceleb_trainer/data/{mode}_list.txt", "r")
-    for line in file:
-        name, path = line.split()
-        if folder=="": folder = dataset_name
-        input = f"./data/{folder}/"+path
-
-        fs, data = wavfile.read(input)
-        output = f"./data/h5/{dataset_name}/"+path.replace("/","+").replace(".wav",".h5")
-        #save_to acoular h5 format
-        acoularh5 = tables.open_file(output, mode = "w", title = output)
-        acoularh5.create_earray('/','time_data', atom=None, title='', filters=None, \
-                                expectedrows=100000, \
-                                byteorder=None, createparents=False, obj=data)
-        acoularh5.set_node_attr('/time_data','sample_freq', fs)
-        acoularh5.close()
-
-        """ # remove old wav files
-        try:
-            os.remove(input)
-        except FileNotFoundError:
-            print("")
-        """
-
-    print(f"End converting: {dataset_name}.") """
-
+    # Store in h5_file for spectrogram and raw audio
+    with h5py.File(args.save_path+"/h5_file_spectrogram_train.hdf5", "w") as f_dst:
+        f_dst.create_dataset("x", data=x)
+        f_dst.create_dataset("y", data=y)
+        f_dst.create_dataset("meta", data=meta)
+    with h5py.File(args.save_path+"/h5_file_audio_train.hdf5", "w") as f_dst:
+        f_dst.create_dataset("x", data=x_audio)
+        f_dst.create_dataset("y", data=y_audio)
+        f_dst.create_dataset("meta", data=meta)
+            
+    print("h5_files saved.")
 
 
 ## ========== ===========
@@ -230,17 +308,6 @@ def split_musan(args):
             wavfile.write(writedir + "/%05d.wav" % (st / fs), fs, aud[st : st + audlen])
 
         print(idx, file)
-
-
-def convert_to_stft(y):
-    transform =  torchaudio.transforms.Spectrogram(
-        #sample_rate=16000,
-        n_fft=512,
-        win_length=400,
-        hop_length=160,
-        window_fn=torch.hamming_window,
-    )
-    return transform(y)
 
 
 ## ========== ===========
@@ -302,5 +369,5 @@ if __name__ == "__main__":
     if args.convert:
         convert(args)
 
-    if args.h5:
+    if args.convert_to_h5:
         convert_to_h5(args)

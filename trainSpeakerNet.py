@@ -145,10 +145,10 @@ parser.add_argument(
 
 ## Training and test data
 parser.add_argument(
-    "--train_list", type=str, default="data/train_list.txt", help="Train list"
+    "--train_list", type=str, default="./lists/voxceleb2.txt", help="Train list"
 )
 parser.add_argument(
-    "--test_list", type=str, default="data/test_list.txt", help="Evaluation list"
+    "--test_list", type=str, default="./lists/voxceleb1.txt", help="Evaluation list"
 )
 parser.add_argument(
     "--train_path",
@@ -274,15 +274,15 @@ def main_worker(gpu, ngpus_per_node, args):
         scorefile = open(args.result_save_path + "/scores.txt", "a+")
 
     ## Initialise trainer and data loader
-    train_dataset = train_dataset_loader(**vars(args)) # returns h5_file
+    train_dataset = train_dataset_loader(**vars(args)) 
 
-    train_sampler = train_dataset_sampler(train_dataset, **vars(args)) # TODO
+    train_sampler = train_dataset_sampler(train_dataset, **vars(args)) 
 
-    train_loader = torch.utils.data.DataLoader( # TODO
-        train_dataset,
+    train_loader = torch.utils.data.DataLoader( 
+        train_dataset, # check shape
         batch_size=args.batch_size,
         num_workers=args.nDataLoaderThread,
-        sampler=train_sampler,
+        sampler=train_sampler, # check shape
         pin_memory=False,
         worker_init_fn=worker_init_fn,
         drop_last=True,
