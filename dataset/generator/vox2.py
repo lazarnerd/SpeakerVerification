@@ -61,10 +61,10 @@ class VoxCeleb2DatasetGenerator(BaseDatasetGenerator):
 if __name__ == "__main__":
     # exmaple usage
     # only works if you're using the devcontainer
-    source_path = Path("/workspaces/SpeakerVerification/data/dev")
+    source_path = Path("/workspaces/SpeakerVerification/data/vox2")
 
-    dest_path_raw = Path("/workspaces/SpeakerVerification/data/vox2.raw.h5")
-    dest_path_spec = Path("/workspaces/SpeakerVerification/data/vox2.spec.h5")
+    dest_path_raw = Path("/workspaces/SpeakerVerification/data/vox2/vox2.raw.h5")
+    dest_path_spec = Path("/workspaces/SpeakerVerification/data/vox2/vox2.spec.h5")
     if dest_path_raw.exists():
         dest_path_raw.unlink()
     if dest_path_spec.exists():
