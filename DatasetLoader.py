@@ -154,7 +154,7 @@ class train_dataset_loader(Dataset):
 
         feat = []
         #indices = random.sample(self.batch_size, len(self.data_list))
-        for index in range(len(data_label)):
+        for index in range(len(data_label)): # in indices
             
             audio = loadWAV(index, self.max_frames, evalmode=False) #replace this with audio
             """ if self.augment:

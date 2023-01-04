@@ -212,54 +212,56 @@ def get_meta_data():
     return meta_data
 
 def convert_to_h5(args):  
+    print("Start converting to h5")
     data_list, data_label = get_data_and_labels(args)
     meta_data = get_meta_data()
 
     # Generates Samples
     def sample_generator():
         for i, data in enumerate(data_list):
-            waveform, _ = torchaudio.load(data)
+            #waveform, _ = torchaudio.load(data)
             audio, _ = soundfile.read(data) # raw audio in h5 ebenfalls speichern
             speaker_id = data_label[i]
-            yield i, waveform, audio, speaker_id
+            #yield i, waveform, audio, speaker_id
+            yield i, audio, speaker_id
 
     n_samples = len(data_list)
     T = 0
     n_freq = 257
 
-    # x: Sample Dataset containing the spectrograms
+    """ # x: Sample Dataset containing the spectrograms
     # shape:  [T, n_freq]
     # T:      The sum of lengths from the time axes of all the spectrograms
     # n_freq: The number of frequency bins in the spectrograms 
-    x = h5py.File(args.save_path+'x.hdf5', 'w').create_dataset("x", (T,n_freq), maxshape=(None, n_freq)) 
+    x = h5py.File(args.save_path+'/h5_files/x.hdf5', 'w').create_dataset("x", (T,n_freq), maxshape=(None, n_freq)) 
     # y: Label Dataset containing the speaker IDs, and indices of the samples
     # shape:  [n_samples, 3]
     # The first column is the speaker ID
     # The second column is the START index of the sample in the spectrogram (x) dataset
     # The third column is the END index of the sample in the spectrogram (x) dataset
-    y = h5py.File(args.save_path+'/y.hdf5', 'w').create_dataset("y", (n_samples, 3))
+    y = h5py.File(args.save_path+'/h5_files/y.hdf5', 'w').create_dataset("y", (n_samples, 3)) """
     
     # Same for raw audio with exception that x_audio contains audio
-    x_audio = h5py.File(args.save_path+'/x_audio.hdf5', 'w').create_dataset("x_audio", (0,), maxshape=(None,))
-    y_audio = h5py.File(args.save_path+'/y_audio.hdf5', 'w').create_dataset("y", (n_samples, 3))
+    x_audio = h5py.File(args.save_path+'/h5_files/x_audio.hdf5', 'w').create_dataset("x", (0,), maxshape=(None,), compression="gzip", chunks=True)
+    y_audio = h5py.File(args.save_path+'/h5_files/y_audio.hdf5', 'w').create_dataset("y", (n_samples, 3), compression="gzip", chunks=True)
     
-    meta = h5py.File(args.save_path+'/meta.hdf5', 'w').create_dataset("meta", (n_samples, 3))
+    meta = h5py.File(args.save_path+'/h5_files/meta.hdf5', 'w').create_dataset("meta", (n_samples, 3), compression="gzip", chunks=True)
 
-    x_shape = (T,n_freq)
+    #x_shape = (T,n_freq)
     x_audio_shape = (0,)
 
     samples = sample_generator()
-    for i, waveform, audio, speaker_id in samples:
+    for i, audio, speaker_id in samples:
+        
+        """ # Store spectrogram
         spectrogram = convert_to_stft(waveform)[0].T # spectrogram shape: [T, n_freq]
-
-        # Store spectrogram
         start_index = x_shape[0]
         end_index   = start_index + spectrogram.size()[0]
         x_shape = (end_index, n_freq)
         x.resize(x_shape)
         x[start_index:end_index,:] = spectrogram
         x_shape = (end_index+1, n_freq)
-        y[i,:] = (speaker_id, start_index, end_index)
+        y[i,:] = (speaker_id, start_index, end_index) """
         
         # Store raw audio
         start_index = x_audio_shape[0]
@@ -271,22 +273,19 @@ def convert_to_h5(args):
         y_audio[i,:] = (speaker_id, start_index, end_index)
 
         # Store meta
-        speaker_id = int(y[i,0])
-        meta[i,:] = (speaker_id, meta_data[speaker_id][0], meta_data[speaker_id][1])
-        
-        if i%500==0:
-            print(f"Iteration {i}/{n_samples}")   
+        speaker_id = int(y_audio[i,0])
+        meta[i,:] = (speaker_id, meta_data[speaker_id][0], meta_data[speaker_id][1])  
 
     # Store in h5_file for spectrogram and raw audio
-    with h5py.File(args.save_path+"/h5_file_spectrogram_train.hdf5", "w") as f_dst:
+    """ with h5py.File(args.save_path+"/h5_files/h5_file_spectrogram_train.hdf5", "w") as f_dst:
         f_dst.create_dataset("x", data=x)
         f_dst.create_dataset("y", data=y)
-        f_dst.create_dataset("meta", data=meta)
-    with h5py.File(args.save_path+"/h5_file_audio_train.hdf5", "w") as f_dst:
-        f_dst.create_dataset("x", data=x_audio)
-        f_dst.create_dataset("y", data=y_audio)
-        f_dst.create_dataset("meta", data=meta)
-            
+        f_dst.create_dataset("meta", data=meta) """
+    with h5py.File(args.save_path+"/h5_files/h5_file_audio_train.hdf5", "w") as f_dst:
+        f_dst.create_dataset("x", data=x_audio, compression="gzip", chunks=True, maxshape=(None,))
+        f_dst.create_dataset("y", data=y_audio, compression="gzip", chunks=True, maxshape=(None, 3))
+        f_dst.create_dataset("meta", data=meta, compression="gzip", chunks=True, maxshape=(None, 3))
+                
     print("h5_files saved.")
 
 
