@@ -40,7 +40,7 @@ def loadWAV(index, max_frames, evalmode=True, num_eval=10):
         speaker_id = 0
     else:
         # Read wav file and convert to torch tensor
-        h5_file = h5py.File('/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files_test/vox2.raw.h5','r') # TODO: change this
+        h5_file = h5py.File('/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.raw.h5','r') # TODO: change this
 
         #sample_size = 30000
         (start, end, speaker_id) = h5_file["y"][int(index), :]
@@ -86,11 +86,11 @@ class train_dataset_loader(Dataset):
         self.data_label = []
 
 
-        h5_file = h5py.File('/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files_test/vox2.raw.h5','r') # TODO: change this
+        h5_file = h5py.File('/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.raw.h5','r') # TODO: change this
         for index in range(len(h5_file["y"])):
             (_, _, speaker_id) = h5_file["y"][int(index), :]
             self.data_label.append(speaker_id)
-            
+
         """ # Read training files
         with open(train_list) as dataset_file:
             lines = dataset_file.readlines()

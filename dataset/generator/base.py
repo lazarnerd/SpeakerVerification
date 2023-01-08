@@ -141,8 +141,12 @@ class BaseDatasetGenerator(ABC):
         # Get all files in source path
         f = open(file_list_path,"r")
         l = []
+        i = 0
         for line in f.readlines():
             l.append(str(source_path)+"/"+line.split()[1].replace("\n",""))
+            i+=1
+            if i==100000:
+                break
         self.file_list = l
         f.close()
          
@@ -299,6 +303,8 @@ class BaseDatasetGenerator(ABC):
             self.h5_spectrogram_x[start:end, :] = spectrogram
             self.store_metadata(self.h5_spectrogram_file, i, path)
             spec_index = end """
+            if i == 100000: 
+                break
 
         # Close h5 files
         if self.store_raw:

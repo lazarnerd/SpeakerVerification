@@ -61,10 +61,10 @@ class VoxCeleb2DatasetGenerator(BaseDatasetGenerator):
 if __name__ == "__main__":
     # exmaple usage
     # only works if you're using the devcontainer
-    source_path = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/voxceleb2_small")
-    file_list_path = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/lists/voxceleb2_small.txt")
-    dest_path_raw = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files_test/vox2.raw.h5")
-    dest_path_spec = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files_test/vox2.spec.h5")
+    source_path = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/voxceleb2")
+    file_list_path = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/lists/voxceleb2.txt")
+    dest_path_raw = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.raw.h5")
+    dest_path_spec = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.spec.h5")
     if dest_path_raw.exists():
         dest_path_raw.unlink()
     if dest_path_spec.exists():
