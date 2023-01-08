@@ -37,6 +37,7 @@ def loadWAV(index, max_frames, evalmode=True, num_eval=10):
         audio, sample_rate = soundfile.read(filename)
         audiosize = audio.shape[0]
         startframe = numpy.linspace(0,audiosize-max_audio,num=num_eval)
+        speaker_id = 0
     else:
         # Read wav file and convert to torch tensor
         h5_file = h5py.File('/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files_test/vox2.raw.h5','r') # TODO: change this
@@ -67,7 +68,7 @@ def loadWAV(index, max_frames, evalmode=True, num_eval=10):
 
     feat = numpy.stack(feats,axis=0).astype(numpy.float)
 
-    return feat
+    return feat, speaker_id
 
 
 class train_dataset_loader(Dataset):
@@ -82,8 +83,15 @@ class train_dataset_loader(Dataset):
         self.rir_path   = rir_path
         self.augment    = augment
         self.train_path = train_path
-        
-        # Read training files
+        self.data_label = []
+
+
+        h5_file = h5py.File('/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files_test/vox2.raw.h5','r') # TODO: change this
+        for index in range(len(h5_file["y"])):
+            (_, _, speaker_id) = h5_file["y"][int(index), :]
+            self.data_label.append(speaker_id)
+            
+        """ # Read training files
         with open(train_list) as dataset_file:
             lines = dataset_file.readlines()
 
@@ -103,7 +111,9 @@ class train_dataset_loader(Dataset):
             filename = os.path.join(train_path,data[1])
             
             self.data_label.append(speaker_label)
-            self.data_list.append(filename)
+            self.data_list.append(filename) """
+
+
 
     def __getitem__(self, indices):
 
@@ -113,7 +123,7 @@ class train_dataset_loader(Dataset):
 
         for index in indices:
             
-            audio = loadWAV(index, self.max_frames, evalmode=False)
+            audio, speaker_id = loadWAV(index, self.max_frames, evalmode=False)
             """ if self.augment:
                 augtype = random.randint(0,4)
                 if augtype == 1:
@@ -127,7 +137,7 @@ class train_dataset_loader(Dataset):
   
             feat.append(audio)
         
-        return torch.FloatTensor(numpy.array(feat)), self.data_label[index] # X, y
+        return torch.FloatTensor(numpy.array(feat)), speaker_id # X, y
         
     def __len__(self):
         return len(self.data_list)
@@ -141,7 +151,7 @@ class test_dataset_loader(Dataset):
         self.test_list  = test_list
 
     def __getitem__(self, index):
-        audio = loadWAV(os.path.join(self.test_path,self.test_list[index]), self.max_frames, evalmode=True, num_eval=self.num_eval)
+        audio, _ = loadWAV(os.path.join(self.test_path,self.test_list[index]), self.max_frames, evalmode=True, num_eval=self.num_eval)
         
         return torch.FloatTensor(audio), self.test_list[index]
 
@@ -263,7 +273,7 @@ class AugmentWAV(object):
 
         for noise in noiselist:
 
-            noiseaudio  = loadWAV(noise, self.max_frames, evalmode=False)
+            noiseaudio, _  = loadWAV(noise, self.max_frames, evalmode=False)
             noise_snr   = random.uniform(self.noisesnr[noisecat][0],self.noisesnr[noisecat][1])
             noise_db = 10 * numpy.log10(numpy.mean(noiseaudio[0] ** 2)+1e-4) 
             noises.append(numpy.sqrt(10 ** ((clean_db - noise_db - noise_snr) / 10)) * noiseaudio)

@@ -11,6 +11,7 @@ import librosa
 import torch
 import torchaudio
 import numpy as np
+import os
 
 from tqdm import tqdm
 from h5py import File as H5File
@@ -128,9 +129,6 @@ class BaseDatasetGenerator(ABC):
                 f"Target dataset for spectrograms {spectrogram_destination_path} already exists"
             )
 
-        # Get all files in source path
-        #self.file_list = [path for path in source_path.rglob(f"*.{extension}")]
-
         f = open(file_list_path, "w")
         for file in glob.iglob(str(source_path)+"/*/*/*.wav", recursive=True):
             data = file.split("/")
@@ -138,7 +136,9 @@ class BaseDatasetGenerator(ABC):
             filename = data[-3]+"/"+data[-2]+"/"+data[-1]
             f.write(speaker_id+" "+filename+"\n")
         f.close()
+        os.system(f"sort {file_list_path} -o {file_list_path}")
 
+        # Get all files in source path
         f = open(file_list_path,"r")
         l = []
         for line in f.readlines():
@@ -149,15 +149,11 @@ class BaseDatasetGenerator(ABC):
         self.n_samples = len(self.file_list)
         # Get all speakers and map them to an index
         self.speakers = list(
-            set(list([self.get_speaker_name(path,toint=True) for path in self.file_list]))
+            set(list([self.get_speaker_name(path) for path in self.file_list]))
         )
         self.speakers.sort()
         self.n_speakers = len(self.speakers)
         self.speaker_map = {speaker: i for i, speaker in enumerate(self.speakers)}
-
-
-
-
 
         # Initialize torch function to convert audio to spectrogram
         window_length = int(window_length * sample_rate)
