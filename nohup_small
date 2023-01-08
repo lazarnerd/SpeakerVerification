@@ -1,0 +1,131 @@
+Python Version: 3.10.6 (main, Nov 14 2022, 16:10:14) [GCC 11.3.0]
+PyTorch Version: 1.13.0+cu117
+Number of GPUs: 1
+Save path: exps/ResNetSE34L_AM
+Embedding size is 512, encoder SAP.
+Initialised AMSoftmax m=0.300 s=30.000
+Loaded the model on GPU 0
+Initialised Adam optimizer
+Initialised step LR scheduler
+
+ 2023-01-08 13:48:32 Epoch 1, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.001000
+
+ 2023-01-08 13:48:38 Epoch 2, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.001000
+
+ 2023-01-08 13:48:45 Epoch 3, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.001000
+
+ 2023-01-08 13:48:52 Epoch 4, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.001000
+
+ 2023-01-08 13:48:59 Epoch 5, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.001000
+
+ 2023-01-08 13:49:06 Epoch 6, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.001000
+
+ 2023-01-08 13:49:13 Epoch 7, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.001000
+
+ 2023-01-08 13:49:19 Epoch 8, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.001000
+
+ 2023-01-08 13:49:26 Epoch 9, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.001000
+
+ 2023-01-08 13:49:33 Epoch 10, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.001000
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 69, in _wrap
+    fn(i, *args)
+  File "/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/trainSpeakerNet.py", line 381, in main_worker
+    sc, lab, _ = trainer.evaluateFromList(**vars(args))
+  File "/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/SpeakerNet.py", line 173, in evaluateFromList
+    for idx, data in enumerate(test_loader):
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 628, in __next__
+    data = self._next_data()
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1333, in _next_data
+    return self._process_data(data)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1359, in _process_data
+    data.reraise()
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/_utils.py", line 543, in reraise
+    raise exception
+NameError: Caught NameError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/_utils/worker.py", line 302, in _worker_loop
+    data = fetcher.fetch(index)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 58, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 58, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/DatasetLoader.py", line 144, in __getitem__
+    audio = loadWAV(os.path.join(self.test_path,self.test_list[index]), self.max_frames, evalmode=True, num_eval=self.num_eval)
+  File "/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/DatasetLoader.py", line 36, in loadWAV
+    filename = self.data_list[index] # TODO: check if this works
+NameError: name 'self' is not defined
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 76, in _wrap
+    sys.exit(1)
+SystemExit: 1
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 317, in _bootstrap
+    util._exit_function()
+  File "/usr/lib/python3.10/multiprocessing/util.py", line 357, in _exit_function
+    p.join()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+  File "/usr/lib/python3.10/multiprocessing/popen_fork.py", line 43, in wait
+    return self.poll(os.WNOHANG if timeout == 0.0 else 0)
+  File "/usr/lib/python3.10/multiprocessing/popen_fork.py", line 27, in poll
+    pid, sts = os.waitpid(self.pid, flag)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/_utils/signal_handling.py", line 66, in handler
+    _error_if_any_worker_fails()
+RuntimeError: DataLoader worker (pid 48782) is killed by signal: Terminated. 
+Traceback (most recent call last):
+  File "/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/./trainSpeakerNet.py", line 451, in <module>
+    main()
+  File "/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/./trainSpeakerNet.py", line 445, in main
+    mp.spawn(main_worker, nprocs=n_gpus, args=(n_gpus, args))
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 240, in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method='spawn')
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 198, in start_processes
+    while not context.join():
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 160, in join
+    raise ProcessRaisedException(msg, error_index, failed_process.pid)
+torch.multiprocessing.spawn.ProcessRaisedException: 
+
+-- Process 0 terminated with the following error:
+Traceback (most recent call last):
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 69, in _wrap
+    fn(i, *args)
+  File "/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/trainSpeakerNet.py", line 381, in main_worker
+    sc, lab, _ = trainer.evaluateFromList(**vars(args))
+  File "/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/SpeakerNet.py", line 173, in evaluateFromList
+    for idx, data in enumerate(test_loader):
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 628, in __next__
+    data = self._next_data()
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1333, in _next_data
+    return self._process_data(data)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/dataloader.py", line 1359, in _process_data
+    data.reraise()
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/_utils.py", line 543, in reraise
+    raise exception
+NameError: Caught NameError in DataLoader worker process 0.
+Original Traceback (most recent call last):
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/_utils/worker.py", line 302, in _worker_loop
+    data = fetcher.fetch(index)
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 58, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/ubuntu/.local/lib/python3.10/site-packages/torch/utils/data/_utils/fetch.py", line 58, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/DatasetLoader.py", line 144, in __getitem__
+    audio = loadWAV(os.path.join(self.test_path,self.test_list[index]), self.max_frames, evalmode=True, num_eval=self.num_eval)
+  File "/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/DatasetLoader.py", line 36, in loadWAV
+    filename = self.data_list[index] # TODO: check if this works
+NameError: name 'self' is not defined
+
+

@@ -279,10 +279,10 @@ def main_worker(gpu, ngpus_per_node, args):
     train_sampler = train_dataset_sampler(train_dataset, **vars(args)) 
 
     train_loader = torch.utils.data.DataLoader( 
-        train_dataset, # check shape
+        train_dataset,
         batch_size=args.batch_size,
         num_workers=args.nDataLoaderThread,
-        sampler=train_sampler, # check shape
+        sampler=train_sampler,
         pin_memory=False,
         worker_init_fn=worker_init_fn,
         drop_last=True,

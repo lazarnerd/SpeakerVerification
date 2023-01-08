@@ -1,0 +1,26 @@
+Python Version: 3.10.6 (main, Nov 14 2022, 16:10:14) [GCC 11.3.0]
+PyTorch Version: 1.13.0+cu117
+Number of GPUs: 1
+Save path: exps/ResNetSE34L_AM
+Embedding size is 512, encoder SAP.
+Initialised AMSoftmax m=0.300 s=30.000
+Loaded the model on GPU 0
+Initialised Adam optimizer
+Initialised step LR scheduler
+Model exps/ResNetSE34L_AM/model/model000000120.model loaded from previous state!
+
+ 2023-01-08 13:01:41 Epoch 121, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.000540
+
+ 2023-01-08 13:01:51 Epoch 122, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.000540
+
+ 2023-01-08 13:02:02 Epoch 123, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.000540
+
+ 2023-01-08 13:02:13 Epoch 124, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.000540
+
+ 2023-01-08 13:02:23 Epoch 125, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.000540
+
+ 2023-01-08 13:02:34 Epoch 126, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.000540
+
+ 2023-01-08 13:02:44 Epoch 127, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.000540
+
+ 2023-01-08 13:02:55 Epoch 128, TEER/TAcc 0.00, TLOSS 0.000000, LR 0.000540

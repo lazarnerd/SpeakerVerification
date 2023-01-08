@@ -50,21 +50,21 @@ class VoxCeleb2DatasetGenerator(BaseDatasetGenerator):
 
     def get_speaker_name(self, path: Path) -> str:
         return str(path).split("/")[-3]
-
+        
     def get_video_name(self, path: Path) -> str:
         return str(path).split("/")[-2]
 
     def get_utterance_name(self, path: Path) -> str:
-        return path.stem
+        return Path(str(path)).stem
 
 
 if __name__ == "__main__":
     # exmaple usage
     # only works if you're using the devcontainer
-    source_path = Path("/workspaces/SpeakerVerification/data/vox2")
-
-    dest_path_raw = Path("/workspaces/SpeakerVerification/data/vox2/vox2.raw.h5")
-    dest_path_spec = Path("/workspaces/SpeakerVerification/data/vox2/vox2.spec.h5")
+    source_path = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/voxceleb2_small")
+    file_list_path = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/SpeakerVerification/lists/voxceleb2_small.txt")
+    dest_path_raw = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files_test/vox2.raw.h5")
+    dest_path_spec = Path("/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files_test/vox2.spec.h5")
     if dest_path_raw.exists():
         dest_path_raw.unlink()
     if dest_path_spec.exists():
@@ -72,8 +72,9 @@ if __name__ == "__main__":
 
     generator = VoxCeleb2DatasetGenerator(
         source_path,
+        file_list_path,
         dest_path_raw,
         dest_path_spec,
-        extension="m4a",
+        extension="wav",
     )
     generator.generate_dataset()

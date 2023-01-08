@@ -6,7 +6,7 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-
+import glob
 import librosa
 import torch
 import torchaudio
@@ -48,6 +48,7 @@ class BaseDatasetGenerator(ABC):
     def __init__(
         self,
         source_path: Path,
+        file_list_path: Path,
         raw_destination_path: Path,
         spectrogram_destination_path: Path,
         store_raw: bool = True,
@@ -63,6 +64,9 @@ class BaseDatasetGenerator(ABC):
         Args:
             source_path (Path):
                 Source path containing the audio files.
+
+            file_list_path (Path):
+                File list path containing the file names of audio files.
 
             raw_destination_path (Path):
                 Path of target h5 dataset file for raw audio waveforms.
@@ -113,6 +117,7 @@ class BaseDatasetGenerator(ABC):
             raise FileNotFoundError(f"Source path {source_path} does not exist")
         elif source_path.is_file():
             raise NotADirectoryError(f"Source path {source_path} is not a directory")
+        
         # Validate destination path
         if store_raw and raw_destination_path.exists():
             raise FileExistsError(
@@ -124,17 +129,35 @@ class BaseDatasetGenerator(ABC):
             )
 
         # Get all files in source path
-        self.file_list = [path for path in source_path.rglob(f"*.{extension}")]
+        #self.file_list = [path for path in source_path.rglob(f"*.{extension}")]
 
-        self.file_list.sort()
+        f = open(file_list_path, "w")
+        for file in glob.iglob(str(source_path)+"/*/*/*.wav", recursive=True):
+            data = file.split("/")
+            speaker_id = data[-3]
+            filename = data[-3]+"/"+data[-2]+"/"+data[-1]
+            f.write(speaker_id+" "+filename+"\n")
+        f.close()
+
+        f = open(file_list_path,"r")
+        l = []
+        for line in f.readlines():
+            l.append(str(source_path)+"/"+line.split()[1].replace("\n",""))
+        self.file_list = l
+        f.close()
+         
         self.n_samples = len(self.file_list)
-
         # Get all speakers and map them to an index
         self.speakers = list(
-            set(list([self.get_speaker_name(path) for path in self.file_list]))
+            set(list([self.get_speaker_name(path,toint=True) for path in self.file_list]))
         )
+        self.speakers.sort()
         self.n_speakers = len(self.speakers)
         self.speaker_map = {speaker: i for i, speaker in enumerate(self.speakers)}
+
+
+
+
 
         # Initialize torch function to convert audio to spectrogram
         window_length = int(window_length * sample_rate)
@@ -147,13 +170,15 @@ class BaseDatasetGenerator(ABC):
         )
 
         # Validate sample loading
-        duration, raw_audio, spectrogram = self.read_sample(self.file_list[0])
-        self.n_freq_bins = spectrogram.shape[1]
+        #duration, raw_audio, spectrogram = self.read_sample(self.file_list[0])
+        duration, raw_audio = self.read_sample(self.file_list[0])
+        raw_audio_chunk_size = (int(self.sample_rate * chunk_length),)
+        """ self.n_freq_bins = spectrogram.shape[1]
         raw_audio_chunk_size = (int(self.sample_rate * chunk_length),)
         spectrogram_chunk_size = (
             int(spectrogram.shape[0] * chunk_length / duration),
             self.n_freq_bins,
-        )
+        ) """
 
         # Initialize h5 datasets
         if self.store_raw:
@@ -170,7 +195,7 @@ class BaseDatasetGenerator(ABC):
             )
             self.init_metadata_dataset(self.h5_raw_file)
 
-        self.h5_spectrogram_file = H5File(spectrogram_destination_path, "w-")
+        """ self.h5_spectrogram_file = H5File(spectrogram_destination_path, "w-")
         self.h5_spectrogram_x = self.h5_spectrogram_file.create_dataset(
             "x",
             shape=(1, self.n_freq_bins),
@@ -180,8 +205,9 @@ class BaseDatasetGenerator(ABC):
         )
         self.h5_spectrogram_y = self.h5_spectrogram_file.create_dataset(
             "y", shape=(self.n_samples, 3), dtype=np.int64, chunks=True
-        )
+        ) 
         self.init_metadata_dataset(self.h5_spectrogram_file)
+        """
 
     def read_sample(self, path: Path) -> Tuple[float, np.ndarray, np.ndarray]:
         """Reads a sample from the given path.
@@ -202,8 +228,8 @@ class BaseDatasetGenerator(ABC):
             sr=self.sample_rate,
             mono=True,
         )
-        spectrogram = self.convert_to_stft(torch.from_numpy(raw_audio)).numpy()
-        return raw_audio.shape[0] / self.sample_rate, raw_audio, spectrogram.T
+        #spectrogram = self.convert_to_stft(torch.from_numpy(raw_audio)).numpy()
+        return raw_audio.shape[0] / self.sample_rate, raw_audio#, spectrogram.T
 
     @abstractmethod
     def get_speaker_name(self, path: Path) -> str:
@@ -260,7 +286,8 @@ class BaseDatasetGenerator(ABC):
         ):
             speaker = self.get_speaker_name(path)
             speaker_id = self.speaker_map[speaker]
-            duration, raw_audio, spectrogram = self.read_sample(path)
+            #duration, raw_audio, spectrogram = self.read_sample(path)
+            duration, raw_audio = self.read_sample(path)
             if self.store_raw:
                 start = raw_index
                 end = raw_index + raw_audio.shape[0]
@@ -269,15 +296,15 @@ class BaseDatasetGenerator(ABC):
                 self.h5_raw_x[start:end] = raw_audio
                 self.store_metadata(self.h5_raw_file, i, path)
                 raw_index = end
-            start = spec_index
+            """ start = spec_index
             end = spec_index + spectrogram.shape[0]
             self.h5_spectrogram_y[i, :] = np.array([speaker_id, start, end])
             self.h5_spectrogram_x.resize((end, self.n_freq_bins))
             self.h5_spectrogram_x[start:end, :] = spectrogram
             self.store_metadata(self.h5_spectrogram_file, i, path)
-            spec_index = end
+            spec_index = end """
 
         # Close h5 files
         if self.store_raw:
             self.h5_raw_file.close()
-        self.h5_spectrogram_file.close()
+        #self.h5_spectrogram_file.close()

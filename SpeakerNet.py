@@ -116,6 +116,7 @@ class ModelTrainer(object):
             telapsed = time.time() - tstart
             tstart = time.time()
 
+           # TODO: avoid too many logs 
             if verbose:
                 sys.stdout.write("\rProcessing {:d} of {:d}:".format(index, loader.__len__() * loader.batch_size))
                 sys.stdout.write("Loss {:f} TEER/TAcc {:2.3f}% - {:.2f} Hz ".format(loss / counter, top1 / counter, stepsize / telapsed))
@@ -127,7 +128,9 @@ class ModelTrainer(object):
         if self.lr_step == "epoch":
             self.__scheduler__.step()
 
-        return (loss / counter, top1 / counter)
+        metric1 = loss /(counter+1e-6)
+        metric2 = top1/(counter+1e-6)
+        return (metric1, metric2)
 
     ## ===== ===== ===== ===== ===== ===== ===== =====
     ## Evaluate from list
