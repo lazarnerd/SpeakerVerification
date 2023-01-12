@@ -8,6 +8,44 @@ from base import BaseDatasetGenerator
 
 
 class VoxCeleb1DatasetGenerator(BaseDatasetGenerator):
+    """
+    VoxCeleb1 Dataset Generator
+    ===========================
+    Stores the VoxCeleb1 Dataset in a H5 File.
+    Can be configured to store the dataset as Spectrograms
+    or Raw Audio.
+    The Speaker Metadata is downloaded from the official
+    website.
+    https://mm.kaist.ac.kr/datasets/voxceleb/meta/vox1_meta.csv
+
+
+    Dataset Details:
+    ----------------
+
+    |                               |         |
+    |-------------------------------|:--------|
+    | # Speakers:                   | 1,251   |
+    | # male Speakers:              | 690     |
+    | # female Speakers:            | 561     |
+    | # videos:                     | 22,496  |
+    | # hours:                      | 352     |
+    | # utterance:                  | 153,516 |
+    | Avg # videos per Speaker:     | 18      |
+    | Avg # utterances per Speaker: | 116     |
+    | Avg length of utterances [s]: | 8.2     |
+
+
+    Dataset Sizes (Dev & Test):
+    ---------------------------
+
+    |         Stored as | Size      |
+    |-------------------|:----------|
+    |              Zip: | 31.4 GiB  |
+    | Extracted audios: | 38.1 GiB  |
+    |      H5 Waveform: | 75.5 GiB  |
+    |   H5 Spectrogram: | 121.4 GiB |
+    """
+
     SPEAKER_METADATA_URI: str = (
         "https://mm.kaist.ac.kr/datasets/voxceleb/meta/vox1_meta.csv"
     )
