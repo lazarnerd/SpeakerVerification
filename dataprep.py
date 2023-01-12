@@ -4,18 +4,22 @@
 # Requirement: ffmpeg and wget running on a Linux system.
 
 import argparse
-import os
-import subprocess
-import pdb
-import hashlib
-import time
 import glob
+import h5py
+import hashlib
+import os
+import pdb
+import soundfile
+import subprocess
 import tarfile
 import time
+import torch
+import torchaudio
 from zipfile import ZipFile
 from tqdm import tqdm
 from scipy.io import wavfile
 from threading import Thread
+
 
 ## ========== ===========
 ## Parse input arguments
@@ -40,6 +44,9 @@ parser.add_argument(
     dest="augment",
     action="store_true",
     help="Download and extract augmentation files",
+)
+parser.add_argument(
+    "--convert_to_h5", dest="convert_to_h5", action="store_true", help="Enable convert"
 )
 
 args = parser.parse_args()
@@ -170,6 +177,117 @@ def convert(args):
         if out != 0:
             raise ValueError("Conversion failed %s." % fname)
 
+def convert_to_stft(y):
+    transform = torchaudio.transforms.Spectrogram(
+        #sample_rate=16000,
+        n_fft=512,
+        win_length=400,
+        hop_length=160,
+        window_fn=torch.hamming_window,
+    )
+    return transform(y)
+
+def get_data_and_labels(args):
+    train_list = "./lists/voxceleb2.txt"
+    train_path = os.path.join(args.save_path,"voxceleb2")
+    data_list = []
+    data_label = []
+
+    for line in open(train_list):
+        speaker_label, filename = line.strip().split()
+        data_label.append(int(speaker_label.replace("id","")))
+        data_list.append(os.path.join(train_path,filename))
+
+    return data_list, data_label
+
+def get_meta_data():
+    meta_list = "./lists/meta_voxceleb2.txt"
+    meta_data = {}
+    feature_indexing = {"gender": {"m": 0, "f": 1}, "dataset": {"dev": 0, "test": 1}}
+    for line in open(meta_list):
+        speaker_label, _, gender, dataset = line.replace(",","").strip().split()
+        speaker_label = int(speaker_label.replace("id",""))
+        meta_data[speaker_label] = [feature_indexing["gender"][gender], feature_indexing["dataset"][dataset]]
+
+    return meta_data
+
+def convert_to_h5(args):  
+    print("Start converting to h5")
+    data_list, data_label = get_data_and_labels(args)
+    meta_data = get_meta_data()
+
+    # Generates Samples
+    def sample_generator():
+        for i, data in enumerate(data_list):
+            #waveform, _ = torchaudio.load(data)
+            audio, _ = soundfile.read(data) # raw audio in h5 ebenfalls speichern
+            speaker_id = data_label[i]
+            #yield i, waveform, audio, speaker_id
+            yield i, audio, speaker_id
+
+    n_samples = len(data_list)
+    T = 0
+    n_freq = 257
+
+    """ # x: Sample Dataset containing the spectrograms
+    # shape:  [T, n_freq]
+    # T:      The sum of lengths from the time axes of all the spectrograms
+    # n_freq: The number of frequency bins in the spectrograms 
+    x = h5py.File(args.save_path+'/h5_files/x.hdf5', 'w').create_dataset("x", (T,n_freq), maxshape=(None, n_freq)) 
+    # y: Label Dataset containing the speaker IDs, and indices of the samples
+    # shape:  [n_samples, 3]
+    # The first column is the speaker ID
+    # The second column is the START index of the sample in the spectrogram (x) dataset
+    # The third column is the END index of the sample in the spectrogram (x) dataset
+    y = h5py.File(args.save_path+'/h5_files/y.hdf5', 'w').create_dataset("y", (n_samples, 3)) """
+    
+    # Same for raw audio with exception that x_audio contains audio
+    x_audio = h5py.File(args.save_path+'/h5_files/x_audio.hdf5', 'w').create_dataset("x", (0,), maxshape=(None,), compression="gzip", chunks=True)
+    y_audio = h5py.File(args.save_path+'/h5_files/y_audio.hdf5', 'w').create_dataset("y", (n_samples, 3), compression="gzip", chunks=True)
+    
+    meta = h5py.File(args.save_path+'/h5_files/meta.hdf5', 'w').create_dataset("meta", (n_samples, 3), compression="gzip", chunks=True)
+
+    #x_shape = (T,n_freq)
+    x_audio_shape = (0,)
+
+    samples = sample_generator()
+    for i, audio, speaker_id in samples:
+        
+        """ # Store spectrogram
+        spectrogram = convert_to_stft(waveform)[0].T # spectrogram shape: [T, n_freq]
+        start_index = x_shape[0]
+        end_index   = start_index + spectrogram.size()[0]
+        x_shape = (end_index, n_freq)
+        x.resize(x_shape)
+        x[start_index:end_index,:] = spectrogram
+        x_shape = (end_index+1, n_freq)
+        y[i,:] = (speaker_id, start_index, end_index) """
+        
+        # Store raw audio
+        start_index = x_audio_shape[0]
+        end_index = start_index + audio.shape[0]
+        x_audio_shape = (end_index,)
+        x_audio.resize(x_audio_shape)
+        x_audio[start_index:end_index,] = audio
+        x_audio_shape = (end_index+1,)
+        y_audio[i,:] = (speaker_id, start_index, end_index)
+
+        # Store meta
+        speaker_id = int(y_audio[i,0])
+        meta[i,:] = (speaker_id, meta_data[speaker_id][0], meta_data[speaker_id][1])  
+
+    # Store in h5_file for spectrogram and raw audio
+    """ with h5py.File(args.save_path+"/h5_files/h5_file_spectrogram_train.hdf5", "w") as f_dst:
+        f_dst.create_dataset("x", data=x)
+        f_dst.create_dataset("y", data=y)
+        f_dst.create_dataset("meta", data=meta) """
+    with h5py.File(args.save_path+"/h5_files/h5_file_audio_train.hdf5", "w") as f_dst:
+        f_dst.create_dataset("x", data=x_audio, compression="gzip", chunks=True, maxshape=(None,))
+        f_dst.create_dataset("y", data=y_audio, compression="gzip", chunks=True, maxshape=(None, 3))
+        f_dst.create_dataset("meta", data=meta, compression="gzip", chunks=True, maxshape=(None, 3))
+                
+    print("h5_files saved.")
+
 
 ## ========== ===========
 ## Split MUSAN for faster random access
@@ -191,16 +309,6 @@ def split_musan(args):
         print(idx, file)
 
 
-def convert_to_stft(y):
-    self.torchfb = torchaudio.transforms.Spectrogram(
-        sample_rate=16000,
-        n_fft=512,
-        win_length=400,
-        hop_length=160,
-        window_fn=torch.hamming_window,
-    )
-
-
 ## ========== ===========
 ## Main script
 ## ========== ===========
@@ -209,19 +317,11 @@ if __name__ == "__main__":
     if not os.path.exists(args.save_path):
         raise ValueError("Target directory does not exist.")
 
-    f = open("lists/fileparts.txt", "r")
-    fileparts = f.readlines()
-    f.close()
-
-    f = open("lists/files.txt", "r")
-    files = f.readlines()
-    f.close()
-
-    f = open("lists/augment.txt", "r")
-    augfiles = f.readlines()
-    f.close()
-
     if args.augment:
+        f = open("lists/augment.txt", "r")
+        augfiles = f.readlines()
+        f.close()
+
         download(args, augfiles)
         print("part-extract for simulated rir is running ...")
         part_extract(
@@ -239,9 +339,17 @@ if __name__ == "__main__":
         print("Done.")
 
     if args.download:
+        f = open("lists/fileparts.txt", "r")
+        fileparts = f.readlines()
+        f.close()
+        
         download(args, fileparts)
 
     if args.extract:
+        f = open("lists/files.txt", "r")
+        files = f.readlines()
+        f.close()
+
         concatenate(args, files)
         for file in files:
             full_extract(args, os.path.join(args.save_path, file.split()[1]))
@@ -259,3 +367,6 @@ if __name__ == "__main__":
 
     if args.convert:
         convert(args)
+
+    if args.convert_to_h5:
+        convert_to_h5(args)

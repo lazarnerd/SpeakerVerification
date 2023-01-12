@@ -55,7 +55,6 @@
 		"jebbs.plantuml",
 		"shd101wyy.markdown-preview-enhanced",
 		"jock.svg",
-		"spmeesseman.vscode-taskexplorer",
 		"tomoyukim.vscode-mermaid-editor"
 	],
 	// Set *default* container specific settings.json values on container create.

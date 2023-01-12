@@ -80,7 +80,7 @@ class ResNetSE(nn.Module):
             with torch.cuda.amp.autocast(enabled=False):
                 x = self.torchfb(x)+1e-6
                 if self.log_input: x = x.log()
-                x = self.instancenorm(x).unsqueeze(1).detach()
+                x = self.instancenorm(x).unsqueeze(1).detach() # TODO: check what instancenorm does
 
         x = self.conv1(x)
         x = self.bn1(x)
