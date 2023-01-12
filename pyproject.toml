@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "speaker-verification"
+version = "0.1.0"
+description = ""
+authors = ["Daniel Neururer <neud@zhaw.ch>"]
+readme = "README.md"
+packages = [{include = "speaker_verification"}]
+
+[tool.poetry.dependencies]
+python = "^3.10,<3.12"
+torch = ">=1.7.0"
+torchaudio = ">=0.7.0"
+asteroid_filterbanks = "==0.4.0"
+numpy = "^1.24.1"
+soundfile = "^0.11.0"
+scipy = "^1.10.0"
+scikit-learn = "^1.2.0"
+tqdm = "^4.64.1"
+pyyaml = "^6.0"
+h5py = "^3.7.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
