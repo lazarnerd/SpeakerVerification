@@ -10,3 +10,6 @@ if __name__ == "__main__":
     secrets = Secrets()
     handler = DatasetHandler(Path("data/voxceleb1"))
     handler.download(secrets.USERNAME, secrets.PASSWORD)
+
+    handler = DatasetHandler(Path("data/voxceleb2"))
+    handler.download(secrets.USERNAME, secrets.PASSWORD)
