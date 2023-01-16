@@ -59,9 +59,13 @@
 	],
 	// Set *default* container specific settings.json values on container create.
 	"settings": {
+		"files.watcherExclude": {
+			"data/**": true
+		},
 		"python.linting.enabled": true,
 		"python.linting.pylintEnabled": false,
 		"python.languageServer": "Pylance",
+		"python.defaultInterpreterPath": ".venv/bin/python",
 		"[python]": {
 			"editor.defaultFormatter": "ms-python.black-formatter",
 			"editor.formatOnSave": true
