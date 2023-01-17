@@ -1,0 +1,4 @@
+Python Version: 3.10.6 (main, Nov 14 2022, 16:10:14) [GCC 11.3.0]
+PyTorch Version: 1.13.0+cu117
+Number of GPUs: 1
+Save path: exps/ResNetSE34L_AP

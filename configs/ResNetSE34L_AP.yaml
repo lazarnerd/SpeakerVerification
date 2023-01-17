@@ -3,5 +3,6 @@ log_input: True
 encoder_type: SAP
 trainfunc: angleproto
 save_path: exps/ResNetSE34L_AP
+train_path: /home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.raw.h5
 nPerSpeaker: 2
 batch_size: 200

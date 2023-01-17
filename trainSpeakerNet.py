@@ -153,7 +153,7 @@ parser.add_argument(
 parser.add_argument(
     "--train_path",
     type=str,
-    default="../data/voxceleb2",
+    default="/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.raw.h5",
     help="Absolute path to the train set",
 )
 parser.add_argument(
@@ -409,13 +409,14 @@ def main_worker(gpu, ngpus_per_node, args):
                     )
                 )
 
-                # checkpoint per epoch?
-                trainer.saveParameters(args.model_save_path + "/model%09d.model" % it)
-
-                with open(args.model_save_path + "/model%09d.eer" % it, "w") as eerfile:
-                    eerfile.write("{:2.4f}".format(result[1]))
+                
 
                 scorefile.flush()
+        # checkpoint per epoch?
+        trainer.saveParameters(args.model_save_path + "/model%09d.model" % it)
+
+        with open(args.model_save_path + "/model%09d.eer" % it, "w") as eerfile:
+            eerfile.write("{:2.4f}".format(result[1]))
 
     if args.gpu == 0:
         scorefile.close()

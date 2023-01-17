@@ -27,7 +27,7 @@ def round_down(num, divisor):
 def worker_init_fn(worker_id):
     numpy.random.seed(numpy.random.get_state()[1][0] + worker_id)
 
-def loadWAV(index, max_frames, evalmode=True, num_eval=10):
+def loadWAV(index, max_frames, evalmode=True, num_eval=10, train_path=""):
 
     # Maximum audio length
     max_audio = max_frames * 160 + 240
@@ -40,7 +40,7 @@ def loadWAV(index, max_frames, evalmode=True, num_eval=10):
         speaker_id = 0
     else:
         # Read wav file and convert to torch tensor
-        h5_file = h5py.File('/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.raw.h5','r') # TODO: change this
+        h5_file = h5py.File(train_path,'r')
 
         #sample_size = 30000
         (start, end, speaker_id) = h5_file["y"][int(index), :]
@@ -86,7 +86,7 @@ class train_dataset_loader(Dataset):
         self.data_label = []
 
 
-        h5_file = h5py.File('/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.raw.h5','r') # TODO: change this
+        h5_file = h5py.File(train_path,'r') # TODO: change this
         for index in range(len(h5_file["y"])):
             (_, _, speaker_id) = h5_file["y"][int(index), :]
             self.data_label.append(speaker_id)
@@ -123,7 +123,7 @@ class train_dataset_loader(Dataset):
 
         for index in indices:
             
-            audio, speaker_id = loadWAV(index, self.max_frames, evalmode=False)
+            audio, speaker_id = loadWAV(index, self.max_frames, evalmode=False, train_path=self.train_path)
             """ if self.augment:
                 augtype = random.randint(0,4)
                 if augtype == 1:
