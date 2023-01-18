@@ -2,6 +2,7 @@ import yaml
 from pathlib import Path
 
 from speaker_verification.dataset.downloader import DatasetDownloader
+from speaker_verification.dataset.generator import DatasetGenerator
 
 
 class DatasetHandler:
@@ -25,3 +26,19 @@ class DatasetHandler:
         DatasetDownloader(
             self.zip_path, self.dataset_config, username, password
         ).download()
+
+    def generate(
+        self,
+        transformation_config_file: Path,
+        sample_rate: int = 16000,
+        sample_duration: float = 0.0,
+    ) -> None:
+        generator = DatasetGenerator(
+            zip_path=self.zip_path,
+            output_path=self.h5_path,
+            dataset_config=self.dataset_config,
+            transformation_config_file=transformation_config_file,
+            sample_rate=sample_rate,
+            sample_duration=sample_duration,
+        )
+        generator.generate()
