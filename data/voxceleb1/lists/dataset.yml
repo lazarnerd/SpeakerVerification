@@ -1,0 +1,27 @@
+download:
+  vox1_test.zip:
+    url: http://cnode01.mm.kaist.ac.kr/voxceleb/vox1a/vox1_test_wav.zip
+    md5: 185fdc63c3c739954633d50379a3d102
+
+concatenate:
+  vox1_dev.zip:
+    md5: bbc063c46078a602ca71605645c2a402
+    files:
+      - part_name: vox1_dev_part_a
+        url: http://cnode01.mm.kaist.ac.kr/voxceleb/vox1a/vox1_dev_wav_partaa
+        md5: e395d020928bc15670b570a21695ed96
+      - part_name: vox1_dev_part_b
+        url: http://cnode01.mm.kaist.ac.kr/voxceleb/vox1a/vox1_dev_wav_partab
+        md5: bbfaaccefab65d82b21903e81a8a8020
+      - part_name: vox1_dev_part_c
+        url: http://cnode01.mm.kaist.ac.kr/voxceleb/vox1a/vox1_dev_wav_partac
+        md5: 017d579a2a96a077f40042ec33e51512
+      - part_name: vox1_dev_part_d
+        url: http://cnode01.mm.kaist.ac.kr/voxceleb/vox1a/vox1_dev_wav_partad
+        md5: 7bb1e9f70fddc7a678fa998ea8b3ba19
+
+zip_files:
+  - name: vox1_dev.zip
+    extension: wav
+  - name: vox1_test.zip
+    extension: wav
