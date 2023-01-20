@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from speaker_verification.dataset.config import Secrets
-from speaker_verification.dataset.handler import DatasetHandler
+from dataset.config import Secrets
+from dataset.handler import DatasetHandler
 
 
 if __name__ == "__main__":

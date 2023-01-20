@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["Daniel Neururer <neud@zhaw.ch>"]
 readme = "README.md"
-packages = [{include = "speaker_verification"}]
+packages = [{ include = "speaker_verification" }]
 repository = "https://github.com/zhaw-nerd/SpeakerVerification"
 
 [tool.poetry.dependencies]
@@ -19,7 +19,8 @@ scikit-learn = "^1.2.0"
 pyyaml = "^6.0"
 h5py = "^3.7.0"
 requests = "^2.28.2"
-pydantic = {extras = ["dotenv"], version = "^1.10.4"}
+#pydantic = { extras = ["dotenv"], version = "^1.10.4" }
+pydantic = "^1.10.4"
 psutil = "^5.9.4"
 rich = "^13.0.1"
 
