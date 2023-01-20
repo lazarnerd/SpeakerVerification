@@ -1,13 +1,14 @@
 import yaml
 import tarfile
 
-from abc import ABC, abstractmethod
 from pathlib import Path
 from zipfile import ZipFile
 import numpy as np
 import torchaudio
 import torch
-from typing import List, Tuple, Generator
+import ffmpeg
+import soundfile as sf
+from typing import IO, List, Tuple, Generator
 from torch import Tensor
 from rich.progress import Progress
 
@@ -61,6 +62,9 @@ class DatasetGenerator:
         with open(transformation_config_file, "r") as f:
             self.transformation_config = yaml.safe_load(f)
 
+        self.tmp_in_file = output_path / "tmp_in"
+        self.tmp_out_file = output_path / "tmp_out"
+
         self.target_file = (
             output_path
             / f"{transformation_config_file.stem}__D_{self.sample_duration:.2f}s.hdf5"
@@ -92,14 +96,25 @@ class DatasetGenerator:
         )
 
     def process_sample(
-        self, sample: Tensor, sample_rate: int, sample_path: Path
+        self, sample: IO[bytes], sample_path: Path
     ) -> Tuple[Tensor, List]:
-        # Resample if necessary
-        if sample_rate != self.sample_rate:
-            sample = torchaudio.transforms.Resample(sample_rate, self.sample_rate)(
-                sample
-            )
+        # Load sample
+        with open(self.tmp_in_file, "wb") as f:
+            f.write(sample.read())
+        audio_stream = ffmpeg.input(str(self.tmp_in_file)).audio
+        output = ffmpeg.output(
+            audio_stream,
+            str(self.tmp_out_file),
+            format="wav",
+            acodec="pcm_s16le",
+            ar=self.sample_rate,
+            ac=1,
+        ).overwrite_output()
+        ffmpeg.run(output, quiet=True)
+
+        sample, sample_rate = torchaudio.load(self.tmp_out_file)
         sample = sample.reshape(sample.shape[1])
+
         # Pad if necessary
         if sample.shape[0] < self.min_length:
             sample = np.pad(sample, self.min_length - sample.shape[0], "wrap")
@@ -116,14 +131,12 @@ class DatasetGenerator:
                 with ZipFile(zip_path) as zip_file:
                     for sample_path in self.file_list["zip"][zip_path]:
                         with zip_file.open(str(sample_path)) as sample_file:
-                            sample, sample_rate = torchaudio.load(sample_file)
-                            yield self.process_sample(sample, sample_rate, sample_path)
+                            yield self.process_sample(sample_file, sample_path)
             for tar_path in self.file_list["tar"]:
                 with tarfile.open(tar_path) as tar_file:
                     for sample_path in self.file_list["tar"][tar_path]:
                         with tar_file.extractfile(str(sample_path)) as sample_file:
-                            sample, sample_rate = torchaudio.load(sample_file)
-                            yield self.process_sample(sample, sample_rate, sample_path)
+                            yield self.process_sample(sample_file, sample_path)
         except GeneratorExit:
             pass
 
@@ -131,45 +144,55 @@ class DatasetGenerator:
         if self.target_file.exists():
             print(f"Dataset {self.target_file} already exists. Skipping.\n")
             return
-        # generate test sample
-        raw = np.random.rand(self.min_length)
-        sample = self.transform_sample(torch.from_numpy(raw))
-        sample = sample.numpy()
+        try:
+            # generate test sample
+            raw = np.random.rand(self.min_length)
+            sample = self.transform_sample(torch.from_numpy(raw))
+            sample = sample.numpy()
 
-        with Progress() as progress:
-            task = progress.add_task(
-                f"Generating: {self.target_file.name}", total=self.n_samples
-            )
-
-            # Generate HDF5 file
-            with h5py.File(self.target_file, "w") as h5_file:
-                x_shape = (1,) + sample.shape[1:]
-                x_max_shape = (None,) + sample.shape[1:]
-
-                x_dataset = h5_file.create_dataset(
-                    "x",
-                    x_shape,
-                    maxshape=x_max_shape,
-                    chunks=sample.shape,
-                    dtype=sample.dtype,
+            with Progress() as progress:
+                task = progress.add_task(
+                    f"Generating: {self.target_file.name}", total=self.n_samples
                 )
 
-                start = 0
-                y = []
-                for sample, sample_name in self.load_samples():
-                    end = start + sample.shape[0]
-                    x_dataset.resize(end, axis=0)
-                    x_dataset[start:end] = sample.numpy()
+                # Generate HDF5 file
+                with h5py.File(self.target_file, "w") as h5_file:
+                    x_shape = (1,) + sample.shape[1:]
+                    x_max_shape = (None,) + sample.shape[1:]
 
-                    y.append((sample_name, start, end))
-                    start = end
-                    progress.advance(task)
+                    x_dataset = h5_file.create_dataset(
+                        "x",
+                        x_shape,
+                        maxshape=x_max_shape,
+                        chunks=sample.shape,
+                        dtype=sample.dtype,
+                    )
 
-                dtype = [
-                    ("sample_name", h5py.string_dtype()),
-                    ("start", "uint64"),
-                    ("end", "uint64"),
-                ]
+                    start = 0
+                    y = []
+                    for sample, sample_name in self.load_samples():
+                        end = start + sample.shape[0]
+                        x_dataset.resize(end, axis=0)
+                        x_dataset[start:end] = sample.numpy()
 
-                y = np.rec.array(y, dtype=dtype)
-                h5_file.create_dataset("y", data=y, dtype=dtype)
+                        y.append((sample_name, start, end))
+                        start = end
+                        progress.advance(task)
+
+                    dtype = [
+                        ("sample_name", h5py.string_dtype()),
+                        ("start", "uint64"),
+                        ("end", "uint64"),
+                    ]
+
+                    y = np.rec.array(y, dtype=dtype)
+                    h5_file.create_dataset("y", data=y, dtype=dtype)
+        except:
+            if self.target_file.exists():
+                self.target_file.unlink()
+            raise
+        finally:
+            if self.tmp_in_file.exists():
+                self.tmp_in_file.unlink()
+            if self.tmp_out_file.exists():
+                self.tmp_out_file.unlink()
