@@ -96,10 +96,6 @@ class FileDownloader(FileVerificator):
         r = self.open_request(headers=headers)
         total_size = start + int(r.headers.get("content-length", 0))
 
-        with open("tmp", "w") as f:
-            f.write(str(r.headers))
-            f.write(f"{total_size}")
-
         self.progress.update(
             self.task,
             description=f"{self.prefix}Downloading: {self.name}",
@@ -154,8 +150,11 @@ class FileConcatenater(FileVerificator):
                 self.file.unlink()
 
         with ThreadPoolExecutor() as executor:
+            futures = []
             for file in self.file_parts:
-                executor.submit(file.process)
+                futures.append(executor.submit(file.process))
+            for future in futures:
+                future.result()
 
         size = sum([file.file.stat().st_size for file in self.file_parts])
         self.progress.update(
@@ -196,6 +195,7 @@ class DatasetDownloader:
     def download(self):
         with Progress() as progress:
             with ThreadPoolExecutor() as executor:
+                futures = []
                 for file_name in self.dataset_config["download"]:
                     file = self.path / file_name
                     url = self.dataset_config["download"][file_name]["url"]
@@ -210,7 +210,8 @@ class DatasetDownloader:
                         progress=progress,
                         resume=self.resume,
                     )
-                    executor.submit(file.process)
+                    futures.append(executor.submit(file.process))
+
                 for file_name in self.dataset_config["concatenate"]:
                     time.sleep(0.1)
                     file_parts = []
@@ -244,4 +245,7 @@ class DatasetDownloader:
                         chunk_size=self.chunk_size,
                         progress=progress,
                     )
-                    executor.submit(file.concatenate)
+                    futures.append(executor.submit(file.concatenate))
+
+                for future in futures:
+                    future.result()
