@@ -7,7 +7,7 @@ import numpy as np
 import torchaudio
 import torch
 import ffmpeg
-import soundfile as sf
+import soundfile
 from typing import IO, List, Tuple, Generator
 from torch import Tensor
 from rich.progress import Progress
@@ -112,15 +112,13 @@ class DatasetGenerator:
         ).overwrite_output()
         ffmpeg.run(output, quiet=True)
 
-        sample, sample_rate = torchaudio.load(self.tmp_out_file)
-        sample = sample.reshape(sample.shape[1])
+        sample, sample_rate = soundfile.read(str(self.tmp_out_file))
 
         # Pad if necessary
         if sample.shape[0] < self.min_length:
             sample = np.pad(sample, self.min_length - sample.shape[0], "wrap")
-            sample = torch.from_numpy(sample)
         # Transform sample
-        sample = self.transform_sample(sample)
+        sample = self.transform_sample(torch.from_numpy(sample))
         # Get sample name
         sample_name = self.get_sample_name(sample_path)
         return sample, sample_name
