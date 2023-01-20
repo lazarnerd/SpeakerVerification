@@ -91,6 +91,20 @@ class DatasetGenerator:
                 window_fn=torch.hamming_window,
             )(sample)
             return sample.T
+        elif self.transformation_config["transform"] == "MEL":
+            options = self.transformation_config["options"]
+            n_fft = int(options["n_fft"])
+            n_mel = int(options["n_mel"])
+            win_length = int(options["window_length"] * self.sample_rate)
+            hop_length = int(options["hop_length"] * self.sample_rate)
+            sample = torchaudio.transforms.MelSpectrogram(
+                n_fft=n_fft,
+                n_mels=n_mel,
+                win_length=win_length,
+                hop_length=hop_length,
+                window_fn=torch.hamming_window,
+            )(sample)
+            return sample.T
         raise ValueError(
             f"Unknown transformation: {self.transformation_config['transform']}"
         )
@@ -118,7 +132,8 @@ class DatasetGenerator:
         if sample.shape[0] < self.min_length:
             sample = np.pad(sample, self.min_length - sample.shape[0], "wrap")
         # Transform sample
-        sample = self.transform_sample(torch.from_numpy(sample))
+        sample = torch.FloatTensor(sample)
+        sample = self.transform_sample(sample)
         # Get sample name
         sample_name = self.get_sample_name(sample_path)
         return sample, sample_name
@@ -145,7 +160,8 @@ class DatasetGenerator:
         try:
             # generate test sample
             raw = np.random.rand(self.min_length)
-            sample = self.transform_sample(torch.from_numpy(raw))
+            sample = torch.FloatTensor(raw)
+            sample = self.transform_sample(sample)
             sample = sample.numpy()
 
             with Progress() as progress:

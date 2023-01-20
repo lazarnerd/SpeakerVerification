@@ -12,7 +12,7 @@ if __name__ == "__main__":
     # handler.download(secrets.USERNAME, secrets.PASSWORD)
     handler.generate(
         transformation_config_file=Path(
-            "configs/dataset/SPEC__F_512__W_0.025s__H_0.01s.yml"
+            "configs/dataset/MEL__F_512__M_40__W_0.025s__H_0.01s.yml"
         ),
         sample_duration=4.0,
         sample_rate=16000,
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     # handler.download(secrets.USERNAME, secrets.PASSWORD)
     handler.generate(
         transformation_config_file=Path(
-            "configs/dataset/SPEC__F_512__W_0.025s__H_0.01s.yml"
+            "configs/dataset/MEL__F_512__M_40__W_0.025s__H_0.01s.yml"
         ),
         sample_duration=2.0,
         sample_rate=16000,
