@@ -9,9 +9,9 @@ import glob
 import zipfile
 import warnings
 import datetime
-from tuneThreshold import *
-from SpeakerNet import *
-from DatasetLoader import *
+from speaker_verification.tuneThreshold import *
+from speaker_verification.SpeakerNet import *
+from speaker_verification.DatasetLoader import *
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
@@ -233,6 +233,9 @@ if args.config is not None:
         else:
             sys.stderr.write("Ignored unknown parameter {} in yaml.\n".format(k))
 
+import deeplake
+import torch
+
 
 ## ===== ===== ===== ===== ===== ===== ===== =====
 ## Trainer script
@@ -274,19 +277,45 @@ def main_worker(gpu, ngpus_per_node, args):
         scorefile = open(args.result_save_path + "/scores.txt", "a+")
 
     ## Initialise trainer and data loader
-    train_dataset = train_dataset_loader(**vars(args)) 
+    # train_dataset = train_dataset_loader(**vars(args))
 
-    train_sampler = train_dataset_sampler(train_dataset, **vars(args)) 
+    # train_sampler = train_dataset_sampler(train_dataset, **vars(args))
 
-    train_loader = torch.utils.data.DataLoader( 
-        train_dataset,
-        batch_size=args.batch_size,
-        num_workers=args.nDataLoaderThread,
-        sampler=train_sampler,
-        pin_memory=False,
-        worker_init_fn=worker_init_fn,
-        drop_last=True,
+    # train_loader = torch.utils.data.DataLoader(
+    #     train_dataset,
+    #     batch_size=args.batch_size,
+    #     num_workers=args.nDataLoaderThread,
+    #     sampler=train_sampler,
+    #     pin_memory=False,
+    #     worker_init_fn=worker_init_fn,
+    #     drop_last=True,
+    # )
+
+    max_audio = args.max_frames * 160 + 240
+
+    def transform_train_sample(sample):
+        if sample.shape[0] <= max_audio:
+            sample = numpy.pad(sample, (0, max_audio - sample.shape[0] + 1), "wrap")
+        start = random.randint(0, sample.shape[0] - max_audio)
+        sample = sample[start : start + max_audio]
+        # sample = sample.reshape(sample.shape[0])
+        sample = torch.FloatTensor(sample.T)
+        print(sample.shape)
+        return sample
+
+    num_workers = 8
+    vox2_dataset = deeplake.load(
+        "/workspaces/SpeakerVerification/data/voxceleb2/deeplake/VoxCeleb2"
     )
+    train_loader = vox2_dataset.pytorch(
+        num_workers=num_workers,
+        shuffle=True,
+        transform={"Audio": transform_train_sample, "Speaker ID": None},
+        batch_size=args.batch_size,
+        pin_memory=True,
+        prefetch_factor=num_workers * 2,
+    )
+    print(type(train_loader))
 
     trainer = ModelTrainer(s, **vars(args))
 
@@ -355,8 +384,6 @@ def main_worker(gpu, ngpus_per_node, args):
 
     ## Core training script
     for it in range(it, args.max_epoch + 1):
-
-        train_sampler.set_epoch(it)
 
         clr = [x["lr"] for x in trainer.__optimizer__.param_groups]
 

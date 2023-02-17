@@ -21,11 +21,13 @@ import h5py
 
 
 def round_down(num, divisor):
-    return num - (num%divisor)
+    return num - (num % divisor)
+
 
 # TODO: implement for multi
 def worker_init_fn(worker_id):
     numpy.random.seed(numpy.random.get_state()[1][0] + worker_id)
+
 
 def loadWAV(index, max_frames, evalmode=True, num_eval=10):
 
@@ -36,57 +38,74 @@ def loadWAV(index, max_frames, evalmode=True, num_eval=10):
         filename = index
         audio, sample_rate = soundfile.read(filename)
         audiosize = audio.shape[0]
-        startframe = numpy.linspace(0,audiosize-max_audio,num=num_eval)
+        startframe = numpy.linspace(0, audiosize - max_audio, num=num_eval)
         speaker_id = 0
     else:
         # Read wav file and convert to torch tensor
-        h5_file = h5py.File('/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.raw.h5','r') # TODO: change this
+        h5_file = h5py.File(
+            "/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.raw.h5",
+            "r",
+        )  # TODO: change this
 
-        #sample_size = 30000
+        # sample_size = 30000
         (start, end, speaker_id) = h5_file["y"][int(index), :]
         duration = end - start
         """ if duration < sample_size:
             sample_size = duration
         start = random.randint(0,duration-sample_size) + start
         audio = h5_file["x"][int(start):int(start+sample_size)] """
-        audio = h5_file["x"][int(start):int(end)] 
+        audio = h5_file["x"][int(start) : int(end)]
 
         audiosize = audio.shape[0]
 
         if audiosize <= max_audio:
-            shortage    = max_audio - audiosize + 1 
-            audio       = numpy.pad(audio, (0, shortage), 'wrap')
-            audiosize   = audio.shape[0]
-        startframe = numpy.array([numpy.int64(random.random()*(audiosize-max_audio))])
-    
+            shortage = max_audio - audiosize + 1
+            audio = numpy.pad(audio, (0, shortage), "wrap")
+            audiosize = audio.shape[0]
+        startframe = numpy.array(
+            [numpy.int64(random.random() * (audiosize - max_audio))]
+        )
+
     feats = []
     if evalmode and max_frames == 0:
         feats.append(audio)
     else:
         for asf in startframe:
-            feats.append(audio[int(asf):int(asf)+max_audio])
+            feats.append(audio[int(asf) : int(asf) + max_audio])
 
-    feat = numpy.stack(feats,axis=0).astype(numpy.float)
+    feat = numpy.stack(feats, axis=0).astype(numpy.float)
 
     return feat, speaker_id
 
 
 class train_dataset_loader(Dataset):
+    def __init__(
+        self,
+        train_list,
+        augment,
+        musan_path,
+        rir_path,
+        max_frames,
+        train_path,
+        **kwargs
+    ):
 
-    def __init__(self, train_list, augment, musan_path, rir_path, max_frames, train_path, **kwargs):
-
-        self.augment_wav = AugmentWAV(musan_path=musan_path, rir_path=rir_path, max_frames = max_frames)
+        self.augment_wav = AugmentWAV(
+            musan_path=musan_path, rir_path=rir_path, max_frames=max_frames
+        )
 
         self.train_list = train_list
         self.max_frames = max_frames
         self.musan_path = musan_path
-        self.rir_path   = rir_path
-        self.augment    = augment
+        self.rir_path = rir_path
+        self.augment = augment
         self.train_path = train_path
         self.data_label = []
 
-
-        h5_file = h5py.File('/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.raw.h5','r') # TODO: change this
+        h5_file = h5py.File(
+            "/home/ubuntu/Documents/vt1code/voxceleb_trainer/data/h5_files/vox2.raw.h5",
+            "r",
+        )  # TODO: change this
         for index in range(len(h5_file["y"])):
             (_, _, speaker_id) = h5_file["y"][int(index), :]
             self.data_label.append(speaker_id)
@@ -113,16 +132,14 @@ class train_dataset_loader(Dataset):
             self.data_label.append(speaker_label)
             self.data_list.append(filename) """
 
-
-
     def __getitem__(self, indices):
 
         feat = []
-        #indices = random.sample(self.batch_size, len(self.data_list))
-        #for index in range(len(data_label)): # in indices TODO
+        # indices = random.sample(self.batch_size, len(self.data_list))
+        # for index in range(len(data_label)): # in indices TODO
 
         for index in indices:
-            
+
             audio, speaker_id = loadWAV(index, self.max_frames, evalmode=False)
             """ if self.augment:
                 augtype = random.randint(0,4)
@@ -134,11 +151,11 @@ class train_dataset_loader(Dataset):
                     audio   = self.augment_wav.additive_noise('speech',audio)
                 elif augtype == 4:
                     audio   = self.augment_wav.additive_noise('noise',audio) """
-  
+
             feat.append(audio)
-        
-        return torch.FloatTensor(numpy.array(feat)), speaker_id # X, y
-        
+
+        return torch.FloatTensor(numpy.array(feat)), speaker_id  # X, y
+
     def __len__(self):
         return len(self.data_list)
 
@@ -146,13 +163,18 @@ class train_dataset_loader(Dataset):
 class test_dataset_loader(Dataset):
     def __init__(self, test_list, test_path, eval_frames, num_eval, **kwargs):
         self.max_frames = eval_frames
-        self.num_eval   = num_eval
-        self.test_path  = test_path
-        self.test_list  = test_list
+        self.num_eval = num_eval
+        self.test_path = test_path
+        self.test_list = test_list
 
     def __getitem__(self, index):
-        audio, _ = loadWAV(os.path.join(self.test_path,self.test_list[index]), self.max_frames, evalmode=True, num_eval=self.num_eval)
-        
+        audio, _ = loadWAV(
+            os.path.join(self.test_path, self.test_list[index]),
+            self.max_frames,
+            evalmode=True,
+            num_eval=self.num_eval,
+        )
+
         return torch.FloatTensor(audio), self.test_list[index]
 
     def __len__(self):
@@ -160,16 +182,25 @@ class test_dataset_loader(Dataset):
 
 
 class train_dataset_sampler(torch.utils.data.Sampler):
-    def __init__(self, data_source, nPerSpeaker, max_seg_per_spk, batch_size, distributed, seed, **kwargs):
+    def __init__(
+        self,
+        data_source,
+        nPerSpeaker,
+        max_seg_per_spk,
+        batch_size,
+        distributed,
+        seed,
+        **kwargs
+    ):
 
-        self.data_label         = data_source.data_label
-        self.nPerSpeaker        = nPerSpeaker
-        self.max_seg_per_spk    = max_seg_per_spk
-        self.batch_size         = batch_size
-        self.epoch              = 0
-        self.seed               = seed
-        self.distributed        = distributed
-        
+        self.data_label = data_source.data_label
+        self.nPerSpeaker = nPerSpeaker
+        self.max_seg_per_spk = max_seg_per_spk
+        self.batch_size = batch_size
+        self.epoch = 0
+        self.seed = seed
+        self.distributed = distributed
+
     def __iter__(self):
 
         g = torch.Generator()
@@ -185,29 +216,28 @@ class train_dataset_sampler(torch.utils.data.Sampler):
                 data_dict[speaker_label] = []
             data_dict[speaker_label].append(index)
 
-
         ## Group file indices for each class
         dictkeys = list(data_dict.keys())
         dictkeys.sort()
 
-        lol = lambda lst, sz: [lst[i:i+sz] for i in range(0, len(lst), sz)]
+        lol = lambda lst, sz: [lst[i : i + sz] for i in range(0, len(lst), sz)]
 
         flattened_list = []
         flattened_label = []
-        
+
         for findex, key in enumerate(dictkeys):
-            data    = data_dict[key]
-            numSeg  = round_down(min(len(data),self.max_seg_per_spk),self.nPerSpeaker)
-            
-            rp      = lol(numpy.arange(numSeg),self.nPerSpeaker)
+            data = data_dict[key]
+            numSeg = round_down(min(len(data), self.max_seg_per_spk), self.nPerSpeaker)
+
+            rp = lol(numpy.arange(numSeg), self.nPerSpeaker)
             flattened_label.extend([findex] * (len(rp)))
             for indices in rp:
                 flattened_list.append([data[i] for i in indices])
 
         ## Mix data in random order
-        mixid           = torch.randperm(len(flattened_label), generator=g).tolist()
-        mixlabel        = []
-        mixmap          = []
+        mixid = torch.randperm(len(flattened_label), generator=g).tolist()
+        mixlabel = []
+        mixmap = []
 
         ## Prevent two pairs of the same speaker in the same batch
         for ii in mixid:
@@ -220,9 +250,11 @@ class train_dataset_sampler(torch.utils.data.Sampler):
 
         ## Divide data to each GPU
         if self.distributed:
-            total_size  = round_down(len(mixed_list), self.batch_size * dist.get_world_size()) 
-            start_index = int ( ( dist.get_rank()     ) / dist.get_world_size() * total_size )
-            end_index   = int ( ( dist.get_rank() + 1 ) / dist.get_world_size() * total_size )
+            total_size = round_down(
+                len(mixed_list), self.batch_size * dist.get_world_size()
+            )
+            start_index = int((dist.get_rank()) / dist.get_world_size() * total_size)
+            end_index = int((dist.get_rank() + 1) / dist.get_world_size() * total_size)
             self.num_samples = end_index - start_index
             return iter(mixed_list[start_index:end_index])
         else:
@@ -230,7 +262,6 @@ class train_dataset_sampler(torch.utils.data.Sampler):
             self.num_samples = total_size
             return iter(mixed_list[:total_size])
 
-    
     def __len__(self) -> int:
         return self.num_samples
 
@@ -238,54 +269,59 @@ class train_dataset_sampler(torch.utils.data.Sampler):
         self.epoch = epoch
 
 
-
-
 class AugmentWAV(object):
-
     def __init__(self, musan_path, rir_path, max_frames):
 
         self.max_frames = max_frames
-        self.max_audio  = max_audio = max_frames * 160 + 240
+        self.max_audio = max_audio = max_frames * 160 + 240
 
-        self.noisetypes = ['noise','speech','music']
+        self.noisetypes = ["noise", "speech", "music"]
 
-        self.noisesnr   = {'noise':[0,15],'speech':[13,20],'music':[5,15]}
-        self.numnoise   = {'noise':[1,1], 'speech':[3,7],  'music':[1,1] }
-        self.noiselist  = {}
+        self.noisesnr = {"noise": [0, 15], "speech": [13, 20], "music": [5, 15]}
+        self.numnoise = {"noise": [1, 1], "speech": [3, 7], "music": [1, 1]}
+        self.noiselist = {}
 
-        augment_files   = glob.glob(os.path.join(musan_path,'*/*/*/*.wav'));
+        augment_files = glob.glob(os.path.join(musan_path, "*/*/*/*.wav"))
 
         for file in augment_files:
-            if not file.split('/')[-4] in self.noiselist:
-                self.noiselist[file.split('/')[-4]] = []
-            self.noiselist[file.split('/')[-4]].append(file)
+            if not file.split("/")[-4] in self.noiselist:
+                self.noiselist[file.split("/")[-4]] = []
+            self.noiselist[file.split("/")[-4]].append(file)
 
-        self.rir_files  = glob.glob(os.path.join(rir_path,'*/*/*.wav'));
+        self.rir_files = glob.glob(os.path.join(rir_path, "*/*/*.wav"))
 
     def additive_noise(self, noisecat, audio):
 
-        clean_db = 10 * numpy.log10(numpy.mean(audio ** 2)+1e-4) 
+        clean_db = 10 * numpy.log10(numpy.mean(audio**2) + 1e-4)
 
-        numnoise    = self.numnoise[noisecat]
-        noiselist   = random.sample(self.noiselist[noisecat], random.randint(numnoise[0],numnoise[1]))
+        numnoise = self.numnoise[noisecat]
+        noiselist = random.sample(
+            self.noiselist[noisecat], random.randint(numnoise[0], numnoise[1])
+        )
 
         noises = []
 
         for noise in noiselist:
 
-            noiseaudio, _  = loadWAV(noise, self.max_frames, evalmode=False)
-            noise_snr   = random.uniform(self.noisesnr[noisecat][0],self.noisesnr[noisecat][1])
-            noise_db = 10 * numpy.log10(numpy.mean(noiseaudio[0] ** 2)+1e-4) 
-            noises.append(numpy.sqrt(10 ** ((clean_db - noise_db - noise_snr) / 10)) * noiseaudio)
+            noiseaudio, _ = loadWAV(noise, self.max_frames, evalmode=False)
+            noise_snr = random.uniform(
+                self.noisesnr[noisecat][0], self.noisesnr[noisecat][1]
+            )
+            noise_db = 10 * numpy.log10(numpy.mean(noiseaudio[0] ** 2) + 1e-4)
+            noises.append(
+                numpy.sqrt(10 ** ((clean_db - noise_db - noise_snr) / 10)) * noiseaudio
+            )
 
-        return numpy.sum(numpy.concatenate(noises,axis=0),axis=0,keepdims=True) + audio
+        return (
+            numpy.sum(numpy.concatenate(noises, axis=0), axis=0, keepdims=True) + audio
+        )
 
     def reverberate(self, audio):
 
-        rir_file    = random.choice(self.rir_files)
-        
-        rir, fs     = soundfile.read(rir_file)
-        rir         = numpy.expand_dims(rir.astype(numpy.float),0)
-        rir         = rir / numpy.sqrt(numpy.sum(rir**2))
+        rir_file = random.choice(self.rir_files)
 
-        return signal.convolve(audio, rir, mode='full')[:,:self.max_audio]
+        rir, fs = soundfile.read(rir_file)
+        rir = numpy.expand_dims(rir.astype(numpy.float), 0)
+        rir = rir / numpy.sqrt(numpy.sum(rir**2))
+
+        return signal.convolve(audio, rir, mode="full")[:, : self.max_audio]

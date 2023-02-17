@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import numpy, sys, random
 import time, itertools, importlib
 
-from DatasetLoader import test_dataset_loader
+from speaker_verification.DatasetLoader import test_dataset_loader
 from torch.cuda.amp import autocast, GradScaler
 
 
@@ -27,10 +27,14 @@ class SpeakerNet(nn.Module):
     def __init__(self, model, optimizer, trainfunc, nPerSpeaker, **kwargs):
         super(SpeakerNet, self).__init__()
 
-        SpeakerNetModel = importlib.import_module("models." + model).__getattribute__("MainModel")
+        SpeakerNetModel = importlib.import_module(
+            "speaker_verification.models." + model
+        ).__getattribute__("MainModel")
         self.__S__ = SpeakerNetModel(**kwargs)
 
-        LossFunction = importlib.import_module("loss." + trainfunc).__getattribute__("LossFunction")
+        LossFunction = importlib.import_module(
+            "speaker_verification.loss." + trainfunc
+        ).__getattribute__("LossFunction")
         self.__L__ = LossFunction(**kwargs)
 
         self.nPerSpeaker = nPerSpeaker
@@ -45,7 +49,11 @@ class SpeakerNet(nn.Module):
 
         else:
 
-            outp = outp.reshape(self.nPerSpeaker, -1, outp.size()[-1]).transpose(1, 0).squeeze(1)
+            outp = (
+                outp.reshape(self.nPerSpeaker, -1, outp.size()[-1])
+                .transpose(1, 0)
+                .squeeze(1)
+            )
 
             nloss, prec1 = self.__L__.forward(outp, label)
 
@@ -57,10 +65,14 @@ class ModelTrainer(object):
 
         self.__model__ = speaker_model
 
-        Optimizer = importlib.import_module("optimizer." + optimizer).__getattribute__("Optimizer")
+        Optimizer = importlib.import_module(
+            "speaker_verification.optimizer." + optimizer
+        ).__getattribute__("Optimizer")
         self.__optimizer__ = Optimizer(self.__model__.parameters(), **kwargs)
 
-        Scheduler = importlib.import_module("scheduler." + scheduler).__getattribute__("Scheduler")
+        Scheduler = importlib.import_module(
+            "speaker_verification.scheduler." + scheduler
+        ).__getattribute__("Scheduler")
         self.__scheduler__, self.lr_step = Scheduler(self.__optimizer__, **kwargs)
 
         self.scaler = GradScaler()
@@ -90,6 +102,8 @@ class ModelTrainer(object):
         tstart = time.time()
 
         for data, data_label in loader:
+            print(data.shape)
+            print(data_label.shape)
 
             data = data.transpose(1, 0)
 
@@ -116,7 +130,7 @@ class ModelTrainer(object):
             telapsed = time.time() - tstart
             tstart = time.time()
 
-           # TODO: avoid too many logs 
+            # TODO: avoid too many logs
             """ if verbose:
                 sys.stdout.write("\rProcessing {:d} of {:d}:".format(index, loader.__len__() * loader.batch_size))
                 sys.stdout.write("Loss {:f} TEER/TAcc {:2.3f}% - {:.2f} Hz ".format(loss / counter, top1 / counter, stepsize / telapsed))
@@ -128,15 +142,24 @@ class ModelTrainer(object):
         if self.lr_step == "epoch":
             self.__scheduler__.step()
 
-        metric1 = loss /(counter+1e-6)
-        metric2 = top1/(counter+1e-6)
+        metric1 = loss / (counter + 1e-6)
+        metric2 = top1 / (counter + 1e-6)
         return (metric1, metric2)
 
     ## ===== ===== ===== ===== ===== ===== ===== =====
     ## Evaluate from list
     ## ===== ===== ===== ===== ===== ===== ===== =====
 
-    def evaluateFromList(self, test_list, test_path, nDataLoaderThread, distributed, print_interval=100, num_eval=10, **kwargs):
+    def evaluateFromList(
+        self,
+        test_list,
+        test_path,
+        nDataLoaderThread,
+        distributed,
+        print_interval=100,
+        num_eval=10,
+        **kwargs
+    ):
 
         if distributed:
             rank = torch.distributed.get_rank()
@@ -160,14 +183,25 @@ class ModelTrainer(object):
         setfiles.sort()
 
         ## Define test data loader
-        test_dataset = test_dataset_loader(setfiles, test_path, num_eval=num_eval, **kwargs)
+        test_dataset = test_dataset_loader(
+            setfiles, test_path, num_eval=num_eval, **kwargs
+        )
 
         if distributed:
-            sampler = torch.utils.data.distributed.DistributedSampler(test_dataset, shuffle=False)
+            sampler = torch.utils.data.distributed.DistributedSampler(
+                test_dataset, shuffle=False
+            )
         else:
             sampler = None
 
-        test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=nDataLoaderThread, drop_last=False, sampler=sampler)
+        test_loader = torch.utils.data.DataLoader(
+            test_dataset,
+            batch_size=1,
+            shuffle=False,
+            num_workers=nDataLoaderThread,
+            drop_last=False,
+            sampler=sampler,
+        )
 
         ## Extract features for every image
         for idx, data in enumerate(test_loader):
@@ -179,7 +213,9 @@ class ModelTrainer(object):
 
             if idx % print_interval == 0 and rank == 0:
                 sys.stdout.write(
-                    "\rReading {:d} of {:d}: {:.2f} Hz, embedding size {:d}".format(idx, test_loader.__len__(), idx / telapsed, ref_feat.size()[1])
+                    "\rReading {:d} of {:d}: {:.2f} Hz, embedding size {:d}".format(
+                        idx, test_loader.__len__(), idx / telapsed, ref_feat.size()[1]
+                    )
                 )
 
         all_scores = []
@@ -218,7 +254,14 @@ class ModelTrainer(object):
                     ref_feat = F.normalize(ref_feat, p=2, dim=1)
                     com_feat = F.normalize(com_feat, p=2, dim=1)
 
-                dist = torch.cdist(ref_feat.reshape(num_eval, -1), com_feat.reshape(num_eval, -1)).detach().cpu().numpy()
+                dist = (
+                    torch.cdist(
+                        ref_feat.reshape(num_eval, -1), com_feat.reshape(num_eval, -1)
+                    )
+                    .detach()
+                    .cpu()
+                    .numpy()
+                )
 
                 score = -1 * numpy.mean(dist)
 
@@ -228,7 +271,11 @@ class ModelTrainer(object):
 
                 if idx % print_interval == 0:
                     telapsed = time.time() - tstart
-                    sys.stdout.write("\rComputing {:d} of {:d}: {:.2f} Hz".format(idx, len(lines), idx / telapsed))
+                    sys.stdout.write(
+                        "\rComputing {:d} of {:d}: {:.2f} Hz".format(
+                            idx, len(lines), idx / telapsed
+                        )
+                    )
                     sys.stdout.flush()
 
         return (all_scores, all_labels, all_trials)
@@ -254,7 +301,7 @@ class ModelTrainer(object):
             newdict = {}
             delete_list = []
             for name, param in loaded_state.items():
-                new_name = "__S__."+name
+                new_name = "__S__." + name
                 newdict[new_name] = param
                 delete_list.append(name)
             loaded_state.update(newdict)
@@ -270,7 +317,11 @@ class ModelTrainer(object):
                     continue
 
             if self_state[name].size() != loaded_state[origname].size():
-                print("Wrong parameter length: {}, model: {}, loaded: {}".format(origname, self_state[name].size(), loaded_state[origname].size()))
+                print(
+                    "Wrong parameter length: {}, model: {}, loaded: {}".format(
+                        origname, self_state[name].size(), loaded_state[origname].size()
+                    )
+                )
                 continue
 
             self_state[name].copy_(param)

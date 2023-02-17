@@ -1,3 +1,4 @@
+﻿VoxCeleb2 ID ,VGGFace2 ID ,Gender ,Set 
 id00012 ,n000012 ,m ,dev 
 id00015 ,n000015 ,m ,dev 
 id00016 ,n000016 ,m ,dev 

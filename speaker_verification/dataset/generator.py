@@ -8,6 +8,7 @@ import torchaudio
 import torch
 import ffmpeg
 import soundfile
+import deeplake
 from typing import IO, List, Tuple, Generator
 from torch import Tensor
 from rich.progress import Progress
@@ -34,7 +35,7 @@ class DatasetGenerator:
         self.file_list["zip"] = {}
 
         self.n_samples = 0
-
+        self.class_names = []
         if "zip_files" in dataset_config:
             for dic in dataset_config["zip_files"]:
                 path = zip_path / dic["name"]
@@ -44,6 +45,9 @@ class DatasetGenerator:
                     files = z.namelist()
                     files = [Path(file) for file in files]
                     files = [file for file in files if file.suffix == extension]
+                    self.class_names.extend(
+                        [self.get_class_name(file) for file in files]
+                    )
                     self.n_samples += len(files)
                     self.file_list["zip"][path] = files
 
@@ -56,8 +60,12 @@ class DatasetGenerator:
                     files = t.getnames()
                     files = [Path(file) for file in files]
                     files = [file for file in files if file.suffix == extension]
+                    self.class_names.extend(
+                        [self.get_class_name(file) for file in files]
+                    )
                     self.n_samples += len(files)
                     self.file_list["tar"][path] = files
+        self.class_names = list(set(self.class_names))
 
         with open(transformation_config_file, "r") as f:
             self.transformation_config = yaml.safe_load(f)
@@ -65,10 +73,20 @@ class DatasetGenerator:
         self.tmp_in_file = output_path / "tmp_in"
         self.tmp_out_file = output_path / "tmp_out"
 
-        self.target_file = (
+        self.target_h5_file = (
             output_path
             / f"{transformation_config_file.stem}__D_{self.sample_duration:.2f}s.hdf5"
         )
+        self.target_deeplake_path = (
+            output_path.parent
+            / "deeplake"
+            / f"{transformation_config_file.stem}__D_{self.sample_duration:.2f}s"
+        )
+        if not self.target_deeplake_path.parent.exists():
+            self.target_deeplake_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def get_class_name(self, sample_path: Path) -> str:
+        return sample_path.parent.parent.name
 
     def get_sample_name(self, sample_path: Path) -> str:
         audio_name = sample_path.stem + ".wav"
@@ -153,57 +171,84 @@ class DatasetGenerator:
         except GeneratorExit:
             pass
 
-    def generate(self):
-        if self.target_file.exists():
-            print(f"Dataset {self.target_file} already exists. Skipping.\n")
-            return
-        try:
-            # generate test sample
-            raw = np.random.rand(self.min_length)
-            sample = torch.FloatTensor(raw)
-            sample = self.transform_sample(sample)
-            sample = sample.numpy()
+    def generate_deeplake(self):
 
-            with Progress() as progress:
-                task = progress.add_task(
-                    f"Generating: {self.target_file.name}", total=self.n_samples
+        # generate test sample
+        raw = np.random.rand(self.min_length)
+        sample = torch.FloatTensor(raw)
+        sample = self.transform_sample(sample)
+        sample = sample.numpy()
+
+        dataset = deeplake.empty(str(self.target_deeplake_path), overwrite=True)
+        with dataset:
+            dataset.create_tensor(
+                "spectrograms", htype="image", dtype="float32", sample_compression=None
+            )
+            dataset.create_tensor(
+                "labels", htype="class_label", class_names=self.class_names
+            )
+            dataset.create_tensor("sample_names", htype="text")
+
+        with Progress() as progress:
+
+            # Generate HDF5 file
+            with h5py.File(self.target_h5_file, "w") as h5_file:
+                x_shape = (1,) + sample.shape[1:]
+                x_max_shape = (None,) + sample.shape[1:]
+
+                x_dataset = h5_file.create_dataset(
+                    "x",
+                    x_shape,
+                    maxshape=x_max_shape,
+                    chunks=sample.shape,
+                    dtype=sample.dtype,
                 )
 
-                # Generate HDF5 file
-                with h5py.File(self.target_file, "w") as h5_file:
-                    x_shape = (1,) + sample.shape[1:]
-                    x_max_shape = (None,) + sample.shape[1:]
+                start = 0
+                y = []
+                task = progress.add_task(
+                    f"Generating: {self.target_deeplake_path.name}",
+                    total=self.n_samples,
+                )
+                for sample, sample_name in self.load_samples():
+                    spectrogram = sample.numpy()
+                    end = start + sample.shape[0]
+                    x_dataset.resize(end, axis=0)
+                    x_dataset[start:end] = sample
 
-                    x_dataset = h5_file.create_dataset(
-                        "x",
-                        x_shape,
-                        maxshape=x_max_shape,
-                        chunks=sample.shape,
-                        dtype=sample.dtype,
+                    y.append((sample_name, start, end))
+                    start = end
+                    progress.advance(task)
+
+                    class_id = self.class_names.index(
+                        self.get_class_name(Path(sample_name))
                     )
 
-                    start = 0
-                    y = []
-                    for sample, sample_name in self.load_samples():
-                        end = start + sample.shape[0]
-                        x_dataset.resize(end, axis=0)
-                        x_dataset[start:end] = sample.numpy()
+                    with dataset:
+                        dataset.append(
+                            {
+                                "spectrograms": spectrogram.T,
+                                "labels": class_id,
+                                "sample_names": sample_name,
+                            }
+                        )
+                    progress.advance(task)
 
-                        y.append((sample_name, start, end))
-                        start = end
-                        progress.advance(task)
+                dtype = [
+                    ("sample_name", h5py.string_dtype()),
+                    ("start", "uint64"),
+                    ("end", "uint64"),
+                ]
 
-                    dtype = [
-                        ("sample_name", h5py.string_dtype()),
-                        ("start", "uint64"),
-                        ("end", "uint64"),
-                    ]
+                y = np.rec.array(y, dtype=dtype)
+                h5_file.create_dataset("y", data=y, dtype=dtype)
 
-                    y = np.rec.array(y, dtype=dtype)
-                    h5_file.create_dataset("y", data=y, dtype=dtype)
+    def generate(self):
+        try:
+            self.generate_deeplake()
         except:
-            if self.target_file.exists():
-                self.target_file.unlink()
+            if self.target_h5_file.exists():
+                self.target_h5_file.unlink()
             raise
         finally:
             if self.tmp_in_file.exists():
