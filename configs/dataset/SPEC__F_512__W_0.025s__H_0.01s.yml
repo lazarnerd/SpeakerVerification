@@ -1,0 +1,5 @@
+transform: SPEC
+options:
+  n_fft: 512
+  window_length: 0.025
+  hop_length: 0.01

@@ -1,0 +1,6 @@
+transform: MEL
+options:
+  n_fft: 512
+  n_mel: 40
+  window_length: 0.025
+  hop_length: 0.01

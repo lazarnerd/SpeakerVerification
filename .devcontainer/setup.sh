@@ -7,7 +7,9 @@ sudo chown -R vscode:vscode /home/vscode
 sudo apt update -y
 sudo apt upgrade -y
 
-pip3 install -r requirements.txt
+git submodule update --init --recursive
 
 poetry config virtualenvs.create true
 poetry config virtualenvs.in-project true
+
+poetry install
